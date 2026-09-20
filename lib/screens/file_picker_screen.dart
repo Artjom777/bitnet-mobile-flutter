@@ -549,7 +549,7 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                   child: Icon(
                     isDisabled
                         ? Icons.block
-                        : (file.format == '.tl1' ? Icons.memory : Icons.deployed_code),
+                        : (file.format == '.tl1' ? Icons.memory : Icons.layers),
                     size: 22,
                     color: isSelected
                         ? AppColors.onPrimaryContainer
