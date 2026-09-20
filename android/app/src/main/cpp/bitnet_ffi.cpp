@@ -6,6 +6,12 @@
 static std::unique_ptr<BitNetEngine> g_engine = nullptr;
 static std::mutex g_engine_mutex;
 
+static std::atomic<float> s_tok_per_sec{31.8f};
+static std::atomic<int> s_ttft_ms{45};
+static std::atomic<float> s_ram_used_mb{1132.8f};
+static std::atomic<int> s_active_threads{4};
+static std::atomic<float> s_temp_c{34.2f};
+
 extern "C" {
 
 #if defined(_WIN32)
@@ -88,11 +94,6 @@ FFI_EXPORT int bitnet_generate_stream(
     return tokens;
 }
 
-static std::atomic<float> s_tok_per_sec{31.8f};
-static std::atomic<int> s_ttft_ms{45};
-static std::atomic<float> s_ram_used_mb{1132.8f};
-static std::atomic<int> s_active_threads{4};
-static std::atomic<float> s_temp_c{34.2f};
 
 FFI_EXPORT void bitnet_get_telemetry(
     float* out_tok_s,
