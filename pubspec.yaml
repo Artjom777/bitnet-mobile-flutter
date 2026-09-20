@@ -1,0 +1,23 @@
+name: bitnet_mobile
+description: "BitNet On-Device Material AI mobile app for Android (1.58-bit ternary quantization inference UI)"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icon.png
