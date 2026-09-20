@@ -56,19 +56,19 @@ class AppTheme {
         trackHeight: 4.0,
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith<Color?>((states) {
-          if (states.contains(MaterialState.selected)) {
+        thumbColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.onPrimary;
           }
           return AppColors.onSurfaceVariant;
         }),
-        trackColor: MaterialStateProperty.resolveWith<Color?>((states) {
-          if (states.contains(MaterialState.selected)) {
+        trackColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.primary;
           }
           return AppColors.surfaceContainerHighest;
         }),
-        trackOutlineColor: MaterialStateProperty.all(Colors.transparent),
+        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       ),
     );
   }

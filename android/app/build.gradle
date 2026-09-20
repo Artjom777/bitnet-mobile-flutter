@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.bitnet.ai"
-    compileSdk 34
+    compileSdk 35
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -42,8 +42,8 @@ android {
 
     defaultConfig {
         applicationId "com.bitnet.ai"
-        minSdkVersion 24
-        targetSdkVersion 34
+        minSdk 24
+        targetSdk 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
