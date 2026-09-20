@@ -5,6 +5,9 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <atomic>
+#include <mutex>
+#include <unordered_map>
 #include "bitnet_kernel.h"
 
 struct BitNetConfig {
@@ -17,11 +20,10 @@ struct BitNetConfig {
     int max_context = 4096;
     int n_threads = 4;
     float norm_eps = 1e-5f;
+    float rope_theta = 10000.0f;
     std::string model_name = "BitNet-b1.58-2B-4T";
     std::string arch = "BitNet 1.58b Ternary";
 };
-
-#include <atomic>
 
 struct BitNetTelemetry {
     std::atomic<float> tok_per_sec{31.8f};
@@ -48,6 +50,15 @@ struct BitNetTelemetry {
         }
         return *this;
     }
+};
+
+struct GGUFTensorInfo {
+    std::string name;
+    uint32_t n_dims = 0;
+    std::vector<uint64_t> dims;
+    uint32_t type = 0;
+    uint64_t offset = 0;
+    size_t size_bytes = 0;
 };
 
 class BitNetEngine {
@@ -99,6 +110,7 @@ private:
     std::vector<float> final_norm_;
     std::vector<uint8_t> lm_head_packed_;
     std::vector<std::string> vocab_;
+    std::unordered_map<std::string, int> token_to_id_;
 
     // KV Cache
     std::vector<float> k_cache_;
@@ -117,6 +129,7 @@ private:
     void init_vocab();
     void init_default_weights();
     bool parse_gguf_file(const std::string& filepath);
+    void update_hardware_telemetry();
 };
 
 #endif // BITNET_ENGINE_H

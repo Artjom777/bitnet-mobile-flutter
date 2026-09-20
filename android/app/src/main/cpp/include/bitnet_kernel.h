@@ -39,7 +39,10 @@ void bitnet_rmsnorm(float* x, const float* weight, int size, float eps);
 // Softmax
 void bitnet_softmax(float* x, int size);
 
-// SwiGLU activation
+// SwiGLU activation: gate = silu(gate) * up
 void bitnet_swiglu(float* gate, const float* up, int size);
+
+// Rotary Positional Embedding (RoPE)
+void bitnet_rope(float* q, float* k, int n_heads, int head_dim, int pos, float theta = 10000.0f);
 
 #endif // BITNET_KERNEL_H

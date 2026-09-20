@@ -2,6 +2,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <atomic>
 
 static std::unique_ptr<BitNetEngine> g_engine = nullptr;
 static std::mutex g_engine_mutex;
@@ -11,6 +12,23 @@ static std::atomic<int> s_ttft_ms{45};
 static std::atomic<float> s_ram_used_mb{1132.8f};
 static std::atomic<int> s_active_threads{4};
 static std::atomic<float> s_temp_c{34.2f};
+
+// Internal engine accessor for JNI bridge
+BitNetEngine* get_global_bitnet_engine() {
+    return g_engine.get();
+}
+
+std::mutex& get_global_bitnet_engine_mutex() {
+    return g_engine_mutex;
+}
+
+void update_cached_telemetry(const BitNetTelemetry& t) {
+    s_tok_per_sec.store(t.tok_per_sec.load(), std::memory_order_relaxed);
+    s_ttft_ms.store(t.ttft_ms.load(), std::memory_order_relaxed);
+    s_ram_used_mb.store(t.ram_used_mb.load(), std::memory_order_relaxed);
+    s_active_threads.store(t.active_threads.load(), std::memory_order_relaxed);
+    s_temp_c.store(t.temp_c.load(), std::memory_order_relaxed);
+}
 
 extern "C" {
 
@@ -29,6 +47,7 @@ FFI_EXPORT int bitnet_init(const char* model_path, int n_threads, int n_ctx) {
     if (model_path && strlen(model_path) > 0) {
         g_engine->load_model(model_path);
     }
+    update_cached_telemetry(g_engine->get_telemetry());
     return ok ? 1 : 0;
 }
 
@@ -38,13 +57,16 @@ FFI_EXPORT int bitnet_load_model(const char* model_path) {
         g_engine = std::make_unique<BitNetEngine>();
     }
     if (!model_path) return 0;
-    return g_engine->load_model(model_path) ? 1 : 0;
+    bool ok = g_engine->load_model(model_path);
+    update_cached_telemetry(g_engine->get_telemetry());
+    return ok ? 1 : 0;
 }
 
 FFI_EXPORT int bitnet_unload_model() {
     std::lock_guard<std::mutex> lock(g_engine_mutex);
     if (g_engine) {
         g_engine->unload_model();
+        update_cached_telemetry(g_engine->get_telemetry());
         return 1;
     }
     return 0;
@@ -84,16 +106,9 @@ FFI_EXPORT int bitnet_generate_stream(
         }
     );
 
-    auto t = g_engine->get_telemetry();
-    s_tok_per_sec.store(t.tok_per_sec.load(), std::memory_order_relaxed);
-    s_ttft_ms.store(t.ttft_ms.load(), std::memory_order_relaxed);
-    s_ram_used_mb.store(t.ram_used_mb.load(), std::memory_order_relaxed);
-    s_active_threads.store(t.active_threads.load(), std::memory_order_relaxed);
-    s_temp_c.store(t.temp_c.load(), std::memory_order_relaxed);
-
+    update_cached_telemetry(g_engine->get_telemetry());
     return tokens;
 }
-
 
 FFI_EXPORT void bitnet_get_telemetry(
     float* out_tok_s,
@@ -102,6 +117,10 @@ FFI_EXPORT void bitnet_get_telemetry(
     int* out_active_threads,
     float* out_temp_c
 ) {
+    if (g_engine) {
+        update_cached_telemetry(g_engine->get_telemetry());
+    }
+
     if (out_tok_s) *out_tok_s = s_tok_per_sec.load(std::memory_order_relaxed);
     if (out_ttft_ms) *out_ttft_ms = s_ttft_ms.load(std::memory_order_relaxed);
     if (out_ram_mb) *out_ram_mb = s_ram_used_mb.load(std::memory_order_relaxed);

@@ -8,19 +8,29 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR ANDROID_ABI STREQUAL "arm64-v8a")
     add_compile_definitions(__ARM_NEON)
-    add_compile_options(-O3 -fvectorize)
+    add_compile_options(-O3 -ffast-math)
+else()
+    add_compile_options(-O3)
 endif()
 
 add_library(bitnet SHARED
     bitnet_kernel.cpp
     bitnet_engine.cpp
     bitnet_ffi.cpp
+    bitnet_jni.cpp
 )
 
-find_library(log-lib log)
-find_library(m-lib m)
-
-target_link_libraries(bitnet
-    ${log-lib}
-    ${m-lib}
-)
+if(ANDROID)
+    find_library(log-lib log)
+    find_library(m-lib m)
+    target_link_libraries(bitnet
+        ${log-lib}
+        ${m-lib}
+    )
+else()
+    find_package(Threads REQUIRED)
+    target_link_libraries(bitnet
+        Threads::Threads
+        m
+    )
+endif()
