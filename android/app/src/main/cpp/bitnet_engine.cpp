@@ -184,9 +184,29 @@ bool BitNetEngine::load_model(const std::string& filepath) {
 void BitNetEngine::unload_model() {
     model_loaded_ = false;
     k_cache_.clear();
+    k_cache_.shrink_to_fit();
     v_cache_.clear();
+    v_cache_.shrink_to_fit();
+    token_embedding_table_.clear();
+    token_embedding_table_.shrink_to_fit();
+    lm_head_packed_.clear();
+    lm_head_packed_.shrink_to_fit();
+    for (auto& lay : layers_) {
+        lay.wq_packed.clear(); lay.wq_packed.shrink_to_fit();
+        lay.wk_packed.clear(); lay.wk_packed.shrink_to_fit();
+        lay.wv_packed.clear(); lay.wv_packed.shrink_to_fit();
+        lay.wo_packed.clear(); lay.wo_packed.shrink_to_fit();
+        lay.w_gate_packed.clear(); lay.w_gate_packed.shrink_to_fit();
+        lay.w_up_packed.clear(); lay.w_up_packed.shrink_to_fit();
+        lay.w_down_packed.clear(); lay.w_down_packed.shrink_to_fit();
+        lay.attn_norm.clear(); lay.attn_norm.shrink_to_fit();
+        lay.ffn_norm.clear(); lay.ffn_norm.shrink_to_fit();
+    }
+    layers_.clear();
+    layers_.shrink_to_fit();
     kv_pos_ = 0;
-    LOGI("BitNetEngine: Model unloaded");
+    telemetry_.ram_used_mb.store(0.0f);
+    LOGI("BitNetEngine: Model completely unloaded and memory released to OS");
 }
 
 int BitNetEngine::tokenize(const std::string& text, std::vector<int>& tokens) {
@@ -259,19 +279,46 @@ void BitNetEngine::forward_token(int token, int pos, float* out_logits) {
             v_cache_[cache_layer_offset + i] = v[i];
         }
 
-        // Attention Head Computation
+        // Genuine Multi-Head Causal Self-Attention over KV Cache
         std::vector<float> attn_out(dim, 0.0f);
         float head_scale = 1.0f / std::sqrt(static_cast<float>(config_.head_dim));
+        int past_len = std::min(pos + 1, config_.max_context);
 
         for (int h = 0; h < config_.n_heads; ++h) {
             int h_offset = h * config_.head_dim;
-            float dot = 0.0f;
-            for (int d = 0; d < config_.head_dim; ++d) {
-                dot += q[h_offset + d] * k[h_offset + d];
+
+            // Compute attention score with all past tokens [0 .. pos]
+            std::vector<float> scores(past_len);
+            float max_score = -1e9f;
+
+            for (int t = 0; t < past_len; ++t) {
+                int k_tok_offset = (l * config_.max_context + (t % config_.max_context)) * dim + h_offset;
+                float dot = 0.0f;
+                for (int d = 0; d < config_.head_dim; ++d) {
+                    dot += q[h_offset + d] * k_cache_[k_tok_offset + d];
+                }
+                scores[t] = dot * head_scale;
+                if (scores[t] > max_score) max_score = scores[t];
             }
-            float score = 1.0f / (1.0f + std::exp(-dot * head_scale));
-            for (int d = 0; d < config_.head_dim; ++d) {
-                attn_out[h_offset + d] = score * v[h_offset + d];
+
+            // Stable Softmax
+            float exp_sum = 0.0f;
+            for (int t = 0; t < past_len; ++t) {
+                scores[t] = std::exp(scores[t] - max_score);
+                exp_sum += scores[t];
+            }
+            float inv_sum = 1.0f / (exp_sum > 0.0f ? exp_sum : 1e-6f);
+            for (int t = 0; t < past_len; ++t) {
+                scores[t] *= inv_sum;
+            }
+
+            // Weighted aggregation of Value vectors
+            for (int t = 0; t < past_len; ++t) {
+                int v_tok_offset = (l * config_.max_context + (t % config_.max_context)) * dim + h_offset;
+                float weight = scores[t];
+                for (int d = 0; d < config_.head_dim; ++d) {
+                    attn_out[h_offset + d] += weight * v_cache_[v_tok_offset + d];
+                }
             }
         }
 

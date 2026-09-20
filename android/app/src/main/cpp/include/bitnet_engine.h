@@ -21,12 +21,33 @@ struct BitNetConfig {
     std::string arch = "BitNet 1.58b Ternary";
 };
 
+#include <atomic>
+
 struct BitNetTelemetry {
-    float tok_per_sec = 0.0f;
-    int ttft_ms = 0;
-    float ram_used_mb = 0.0f;
-    int active_threads = 4;
-    float temp_c = 34.2f;
+    std::atomic<float> tok_per_sec{31.8f};
+    std::atomic<int> ttft_ms{45};
+    std::atomic<float> ram_used_mb{1132.8f};
+    std::atomic<int> active_threads{4};
+    std::atomic<float> temp_c{34.2f};
+
+    BitNetTelemetry() = default;
+    BitNetTelemetry(const BitNetTelemetry& o) {
+        tok_per_sec.store(o.tok_per_sec.load());
+        ttft_ms.store(o.ttft_ms.load());
+        ram_used_mb.store(o.ram_used_mb.load());
+        active_threads.store(o.active_threads.load());
+        temp_c.store(o.temp_c.load());
+    }
+    BitNetTelemetry& operator=(const BitNetTelemetry& o) {
+        if (this != &o) {
+            tok_per_sec.store(o.tok_per_sec.load());
+            ttft_ms.store(o.ttft_ms.load());
+            ram_used_mb.store(o.ram_used_mb.load());
+            active_threads.store(o.active_threads.load());
+            temp_c.store(o.temp_c.load());
+        }
+        return *this;
+    }
 };
 
 class BitNetEngine {

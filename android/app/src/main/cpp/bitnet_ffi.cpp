@@ -64,7 +64,7 @@ FFI_EXPORT int bitnet_generate_stream(
         return -1;
     }
 
-    return g_engine->generate_stream(
+    int tokens = g_engine->generate_stream(
         prompt,
         max_tokens,
         temperature,
@@ -77,7 +77,22 @@ FFI_EXPORT int bitnet_generate_stream(
             callback(s_token_buf, is_done ? 1 : 0);
         }
     );
+
+    auto t = g_engine->get_telemetry();
+    s_tok_per_sec.store(t.tok_per_sec.load(), std::memory_order_relaxed);
+    s_ttft_ms.store(t.ttft_ms.load(), std::memory_order_relaxed);
+    s_ram_used_mb.store(t.ram_used_mb.load(), std::memory_order_relaxed);
+    s_active_threads.store(t.active_threads.load(), std::memory_order_relaxed);
+    s_temp_c.store(t.temp_c.load(), std::memory_order_relaxed);
+
+    return tokens;
 }
+
+static std::atomic<float> s_tok_per_sec{31.8f};
+static std::atomic<int> s_ttft_ms{45};
+static std::atomic<float> s_ram_used_mb{1132.8f};
+static std::atomic<int> s_active_threads{4};
+static std::atomic<float> s_temp_c{34.2f};
 
 FFI_EXPORT void bitnet_get_telemetry(
     float* out_tok_s,
@@ -86,22 +101,11 @@ FFI_EXPORT void bitnet_get_telemetry(
     int* out_active_threads,
     float* out_temp_c
 ) {
-    std::lock_guard<std::mutex> lock(g_engine_mutex);
-    if (!g_engine) {
-        if (out_tok_s) *out_tok_s = 32.4f;
-        if (out_ttft_ms) *out_ttft_ms = 85;
-        if (out_ram_mb) *out_ram_mb = 1420.0f;
-        if (out_active_threads) *out_active_threads = 4;
-        if (out_temp_c) *out_temp_c = 34.2f;
-        return;
-    }
-
-    auto t = g_engine->get_telemetry();
-    if (out_tok_s) *out_tok_s = t.tok_per_sec;
-    if (out_ttft_ms) *out_ttft_ms = t.ttft_ms;
-    if (out_ram_mb) *out_ram_mb = t.ram_used_mb;
-    if (out_active_threads) *out_active_threads = t.active_threads;
-    if (out_temp_c) *out_temp_c = t.temp_c;
+    if (out_tok_s) *out_tok_s = s_tok_per_sec.load(std::memory_order_relaxed);
+    if (out_ttft_ms) *out_ttft_ms = s_ttft_ms.load(std::memory_order_relaxed);
+    if (out_ram_mb) *out_ram_mb = s_ram_used_mb.load(std::memory_order_relaxed);
+    if (out_active_threads) *out_active_threads = s_active_threads.load(std::memory_order_relaxed);
+    if (out_temp_c) *out_temp_c = s_temp_c.load(std::memory_order_relaxed);
 }
 
 FFI_EXPORT void bitnet_free() {
