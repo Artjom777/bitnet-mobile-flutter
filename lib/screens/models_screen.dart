@@ -209,8 +209,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                             description: 'Загружено из Hugging Face',
                           );
 
-                          widget.state.importCustomModel(newModel);
-                          widget.state.loadModel(newModel);
+                          widget.state.importModel(newModel);
 
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(

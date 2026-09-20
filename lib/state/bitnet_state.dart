@@ -263,6 +263,8 @@ class BitNetState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void importCustomModel(ModelItem file) => importModel(file);
+
   // Settings
   void updateSettings(InferenceSettings newSettings) {
     _settings = newSettings;
