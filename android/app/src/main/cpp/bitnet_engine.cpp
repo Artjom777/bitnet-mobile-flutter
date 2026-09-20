@@ -147,6 +147,82 @@ void BitNetEngine::init_default_weights() {
     telemetry_.active_threads = config_.n_threads;
 }
 
+void BitNetEngine::load_gguf_tensors(
+    std::ifstream& file,
+    uint64_t data_offset,
+    const std::vector<GGUFTensorInfo>& tensors
+) {
+    LOGI("Loading tensor weights from GGUF binary data at offset %llu (%zu tensors)",
+         static_cast<unsigned long long>(data_offset), tensors.size());
+
+    for (const auto& ti : tensors) {
+        uint64_t tensor_file_pos = data_offset + ti.offset;
+        file.seekg(tensor_file_pos, std::ios::beg);
+        if (!file.good()) continue;
+
+        // Embedding weight
+        if (ti.name == "token_embd.weight") {
+            size_t count = config_.vocab_size * config_.dim;
+            if (ti.type == 0) { // F32
+                file.read(reinterpret_cast<char*>(token_embedding_table_.data()),
+                          std::min(ti.dims[0] * (ti.dims.size() > 1 ? ti.dims[1] : 1) * sizeof(float),
+                                   token_embedding_table_.size() * sizeof(float)));
+            }
+            continue;
+        }
+
+        // Final norm
+        if (ti.name == "output_norm.weight") {
+            if (ti.type == 0) {
+                file.read(reinterpret_cast<char*>(final_norm_.data()),
+                          std::min(config_.dim * sizeof(float), static_cast<size_t>(ti.dims[0] * sizeof(float))));
+            }
+            continue;
+        }
+
+        // Layer weights: blk.X...
+        int layer_idx = -1;
+        if (ti.name.rfind("blk.", 0) == 0) {
+            size_t dot2 = ti.name.find('.', 4);
+            if (dot2 != std::string::npos) {
+                layer_idx = std::atoi(ti.name.substr(4, dot2 - 4).c_str());
+            }
+        }
+
+        if (layer_idx >= 0 && layer_idx < config_.n_layers) {
+            auto& lay = layers_[layer_idx];
+            if (ti.name.find("attn_q.weight") != std::string::npos) {
+                file.read(reinterpret_cast<char*>(lay.wq_packed.data()),
+                          std::min(lay.wq_packed.size(), static_cast<size_t>((ti.dims[0] * ti.dims[1] + 3) / 4)));
+            } else if (ti.name.find("attn_k.weight") != std::string::npos) {
+                file.read(reinterpret_cast<char*>(lay.wk_packed.data()),
+                          std::min(lay.wk_packed.size(), static_cast<size_t>((ti.dims[0] * ti.dims[1] + 3) / 4)));
+            } else if (ti.name.find("attn_v.weight") != std::string::npos) {
+                file.read(reinterpret_cast<char*>(lay.wv_packed.data()),
+                          std::min(lay.wv_packed.size(), static_cast<size_t>((ti.dims[0] * ti.dims[1] + 3) / 4)));
+            } else if (ti.name.find("attn_output.weight") != std::string::npos) {
+                file.read(reinterpret_cast<char*>(lay.wo_packed.data()),
+                          std::min(lay.wo_packed.size(), static_cast<size_t>((ti.dims[0] * ti.dims[1] + 3) / 4)));
+            } else if (ti.name.find("ffn_gate.weight") != std::string::npos) {
+                file.read(reinterpret_cast<char*>(lay.w_gate_packed.data()),
+                          std::min(lay.w_gate_packed.size(), static_cast<size_t>((ti.dims[0] * ti.dims[1] + 3) / 4)));
+            } else if (ti.name.find("ffn_up.weight") != std::string::npos) {
+                file.read(reinterpret_cast<char*>(lay.w_up_packed.data()),
+                          std::min(lay.w_up_packed.size(), static_cast<size_t>((ti.dims[0] * ti.dims[1] + 3) / 4)));
+            } else if (ti.name.find("ffn_down.weight") != std::string::npos) {
+                file.read(reinterpret_cast<char*>(lay.w_down_packed.data()),
+                          std::min(lay.w_down_packed.size(), static_cast<size_t>((ti.dims[0] * ti.dims[1] + 3) / 4)));
+            } else if (ti.name.find("attn_norm.weight") != std::string::npos && ti.type == 0) {
+                file.read(reinterpret_cast<char*>(lay.attn_norm.data()),
+                          std::min(lay.attn_norm.size() * sizeof(float), static_cast<size_t>(ti.dims[0] * sizeof(float))));
+            } else if (ti.name.find("ffn_norm.weight") != std::string::npos && ti.type == 0) {
+                file.read(reinterpret_cast<char*>(lay.ffn_norm.data()),
+                          std::min(lay.ffn_norm.size() * sizeof(float), static_cast<size_t>(ti.dims[0] * sizeof(float))));
+            }
+        }
+    }
+}
+
 // GGUF Parser according to GGUF specifications (version 2 and 3)
 bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
     std::ifstream file(filepath, std::ios::binary);
@@ -323,6 +399,11 @@ bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
     k_cache_.assign(kv_size, 0.0f);
     v_cache_.assign(kv_size, 0.0f);
     kv_pos_ = 0;
+
+    // Calculate aligned binary data offset and load tensor weights
+    uint64_t curr_pos = file.tellg();
+    uint64_t data_offset = (curr_pos + alignment - 1) & ~(static_cast<uint64_t>(alignment - 1));
+    load_gguf_tensors(file, data_offset, tensor_infos);
 
     config_.model_name = filepath.substr(filepath.find_last_of("/\\") + 1);
     model_loaded_ = true;

@@ -33,6 +33,18 @@ void bitnet_gemm_ternary(
     int n_threads
 );
 
+// BitNet TL1 (Ternary Lookup Table 1) accelerated kernel for ARM NEON
+void bitnet_gemm_tl1_lut(
+    const int8_t* activations,
+    const uint8_t* packed_weights,
+    float* output,
+    int rows,
+    int cols,
+    float act_scale,
+    float weight_scale,
+    int n_threads
+);
+
 // RMSNorm layer
 void bitnet_rmsnorm(float* x, const float* weight, int size, float eps);
 

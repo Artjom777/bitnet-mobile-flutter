@@ -8,6 +8,7 @@
 #include <atomic>
 #include <mutex>
 #include <unordered_map>
+#include <fstream>
 #include "bitnet_kernel.h"
 
 struct BitNetConfig {
@@ -129,6 +130,7 @@ private:
     void init_vocab();
     void init_default_weights();
     bool parse_gguf_file(const std::string& filepath);
+    void load_gguf_tensors(std::ifstream& file, uint64_t data_offset, const std::vector<GGUFTensorInfo>& tensors);
     void update_hardware_telemetry();
 };
 
