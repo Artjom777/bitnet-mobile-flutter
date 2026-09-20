@@ -7,7 +7,7 @@
 
 void bitnet_quantize_activations(const float* input, int8_t* output, float* scale, int n) {
     float amax = 1e-6f;
-#ifdef __ARM_NEON
+#if defined(__aarch64__) && defined(__ARM_NEON)
     float32x4_t vmax = vdupq_n_f32(0.0f);
     int i = 0;
     for (; i + 4 <= n; i += 4) {
