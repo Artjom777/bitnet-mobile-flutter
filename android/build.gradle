@@ -5,14 +5,22 @@ allprojects {
     }
 }
 
-rootProject.buildDir = "../build"
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
+try {
+    rootProject.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir("../build").get())
+    subprojects {
+        project.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir(project.name).get())
+    }
+} catch (Exception e) {
+    rootProject.buildDir = "../build"
+    subprojects {
+        project.buildDir = "${rootProject.buildDir}/${project.name}"
+    }
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
 }
 
 tasks.register("clean", Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory
 }
