@@ -12,12 +12,13 @@ struct BitNetConfig {
     int hidden_dim = 5632;
     int n_layers = 16;
     int n_heads = 16;
+    int head_dim = 128;
     int vocab_size = 32000;
     int max_context = 4096;
     int n_threads = 4;
     float norm_eps = 1e-5f;
-    std::string model_name = "BitNet-b1.58-3B-Q1_58";
-    std::string arch = "bitnet.cpp (1.58-bit ternary)";
+    std::string model_name = "BitNet-b1.58-2B-4T";
+    std::string arch = "BitNet 1.58b Ternary";
 };
 
 struct BitNetTelemetry {
@@ -58,7 +59,6 @@ private:
     bool model_loaded_ = false;
     mutable BitNetTelemetry telemetry_;
 
-    // Layer weights structure (Ternary packed)
     struct Layer {
         std::vector<uint8_t> wq_packed;
         std::vector<uint8_t> wk_packed;
@@ -76,11 +76,13 @@ private:
     std::vector<Layer> layers_;
     std::vector<float> token_embedding_table_;
     std::vector<float> final_norm_;
+    std::vector<uint8_t> lm_head_packed_;
     std::vector<std::string> vocab_;
 
     // KV Cache
     std::vector<float> k_cache_;
     std::vector<float> v_cache_;
+    int kv_pos_ = 0;
 
     int sample_next_token(
         float* logits,
@@ -90,8 +92,10 @@ private:
         float rep_penalty
     );
 
-    void init_bundled_weights();
-    bool parse_gguf(const std::string& filepath);
+    void forward_token(int token, int pos, float* out_logits);
+    void init_vocab();
+    void init_default_weights();
+    bool parse_gguf_file(const std::string& filepath);
 };
 
 #endif // BITNET_ENGINE_H

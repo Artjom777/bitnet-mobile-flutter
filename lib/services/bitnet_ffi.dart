@@ -217,34 +217,8 @@ class BitNetFFI {
       yield* controller.stream;
       nativeCallback.close();
     } else {
-      // High-fidelity fallback generation when native lib is not loaded
-      final responseTokens = _generateFallbackResponse(prompt);
-      for (final tok in responseTokens) {
-        await Future.delayed(const Duration(milliseconds: 32));
-        yield tok;
-      }
+      yield '[bitnet.cpp]: Нативная библиотека libbitnet.so загружается на устройстве Android (arm64-v8a). Установите собранный APK на Android-устройство для выполнения локального инференса.';
     }
-  }
-
-  List<String> _generateFallbackResponse(String prompt) {
-    final lower = prompt.toLowerCase();
-    String text = '';
-    if (lower.contains('квант') || lower.contains('quant') || lower.contains('троич')) {
-      text = 'Архитектура BitNet b1.58 квантует веса в троичную систему {-1, 0, +1}. В отличие от традиционного матричного умножения FP16/INT8, в BitNet операции Multi-Head Attention сводятся исключительно к сложению и вычитанию (GEMM ADD), снижая энергопотребление на 80% без заметной деградации перплексии.';
-    } else if (lower.contains('python') || lower.contains('код') || lower.contains('json')) {
-      text = 'Благодаря 1.58-битным весам расход энергии крайне мал: среднее потребление ~0.8–1.2 Вт. Ниже приведён потоковый разбор через bitnet.cpp.';
-    } else if (lower.contains('лог') || lower.contains('анализ')) {
-      text = 'Анализ текущего состояния инференса: задержка первого токена (TTFT) составляет 85 мс, контекстное окно заполнено на 142 токена из 4096. Нагрузка равномерно распределена между Prime Cortex-X4 и энергоэффективными ядрами A720.';
-    } else {
-      text = 'Запрос обработан локальным движком bitnet.cpp на мобильном процессоре. Благодаря троичному представлению весов (1.58 бит) потребление памяти остается в пределах 1.4 ГБ при стабильной генерации 32 токенов в секунду.';
-    }
-
-    final words = text.split(' ');
-    final result = <String>[];
-    for (int i = 0; i < words.length; i++) {
-      result.add((i == 0 ? '' : ' ') + words[i]);
-    }
-    return result;
   }
 
   void dispose() {

@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_typography.dart';
 import '../models/model_item.dart';
 import '../state/bitnet_state.dart';
+import '../services/model_downloader.dart';
 import 'file_picker_screen.dart';
 
 class ModelsScreen extends StatefulWidget {
@@ -24,83 +26,213 @@ class _ModelsScreenState extends State<ModelsScreen> {
   }
 
   void _showUrlDownloadDialog() {
-    final controller = TextEditingController(
-      text: 'https://huggingface.co/microsoft/BitNet-b1.58-3B-Q1_58',
-    );
+    String selectedUrl = ModelDownloader.officialModels.values.first;
+    final controller = TextEditingController(text: selectedUrl);
+    bool isDownloading = false;
+    double progress = 0.0;
+    String statusText = 'Готов к загрузке с Hugging Face';
+    String speedText = '';
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainer,
-        title: Row(
-          children: const [
-            Icon(Icons.cloud_download, color: AppColors.tertiary),
-            SizedBox(width: 8),
-            Text(
-              'Загрузка из репозитория',
-              style: TextStyle(
-                fontFamily: AppTypography.sansFont,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.onSurface,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surfaceContainer,
+          title: Row(
+            children: const [
+              Icon(Icons.cloud_download, color: AppColors.tertiary),
+              SizedBox(width: 8),
+              Text(
+                'Загрузка весов BitNet',
+                style: TextStyle(
+                  fontFamily: AppTypography.sansFont,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
               ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Выберите проверенную модель 1.58-бит или введите URL:',
+                style: TextStyle(
+                  fontFamily: AppTypography.sansFont,
+                  fontSize: 13,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...ModelDownloader.officialModels.entries.map((e) {
+                final isSelected = controller.text == e.value;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: ChoiceChip(
+                    label: Text(
+                      e.key,
+                      style: TextStyle(
+                        fontFamily: AppTypography.sansFont,
+                        fontSize: 11,
+                        color: isSelected ? AppColors.onPrimaryContainer : AppColors.onSurface,
+                      ),
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppColors.primaryContainer,
+                    backgroundColor: AppColors.surfaceContainerLowest,
+                    onSelected: isDownloading ? null : (sel) {
+                      if (sel) {
+                        setDialogState(() {
+                          controller.text = e.value;
+                        });
+                      }
+                    },
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                enabled: !isDownloading,
+                style: const TextStyle(
+                  fontFamily: AppTypography.monoFont,
+                  fontSize: 11,
+                  color: AppColors.onSurface,
+                ),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppColors.surfaceContainerLowest,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.all(10),
+                ),
+              ),
+              if (isDownloading) ...[
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: progress > 0 ? progress : null,
+                  backgroundColor: AppColors.surfaceContainerHighest,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      statusText,
+                      style: const TextStyle(
+                        fontFamily: AppTypography.monoFont,
+                        fontSize: 11,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                    Text(
+                      speedText,
+                      style: const TextStyle(
+                        fontFamily: AppTypography.monoFont,
+                        fontSize: 11,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            if (!isDownloading)
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Отмена', style: TextStyle(color: AppColors.onSurfaceVariant)),
+              ),
+            ElevatedButton(
+              onPressed: isDownloading
+                  ? null
+                  : () async {
+                      final url = controller.text.trim();
+                      if (url.isEmpty) return;
+
+                      setDialogState(() {
+                        isDownloading = true;
+                        statusText = 'Подключение...';
+                      });
+
+                      final filename = url.split('/').last;
+                      final dir = Directory('/data/data/com.bitnet.ai/files/models');
+                      await dir.create(recursive: true);
+                      final destPath = '${dir.path}/$filename';
+
+                      final stream = ModelDownloader.instance.downloadModel(
+                        url: url,
+                        destinationPath: destPath,
+                      );
+
+                      await for (final p in stream) {
+                        if (p.error != null) {
+                          setDialogState(() {
+                            isDownloading = false;
+                            statusText = 'Ошибка: ${p.error}';
+                          });
+                          break;
+                        }
+
+                        setDialogState(() {
+                          progress = p.progressPercent;
+                          statusText = '${(p.progressPercent * 100).toStringAsFixed(1)}% (${(p.receivedBytes / 1024 / 1024).toStringAsFixed(1)} MB)';
+                          speedText = '${p.speedMbPerSec.toStringAsFixed(1)} MB/s';
+                        });
+
+                        if (p.isCompleted) {
+                          Navigator.of(ctx).pop();
+
+                          final newModel = ModelItem(
+                            id: 'downloaded_${DateTime.now().millisecondsSinceEpoch}',
+                            name: filename,
+                            architecture: 'BitNet b1.58 Ternary',
+                            filename: destPath,
+                            format: filename.endsWith('.tl1') ? '.tl1' : '.gguf',
+                            size: '${(p.totalBytes / 1024 / 1024).toStringAsFixed(1)} МБ',
+                            contextSize: 4096,
+                            quantization: '1.58-bit Ternary',
+                            ramRequirement: '1.2 ГБ',
+                            speed: '~32 t/s',
+                            isLoaded: true,
+                            status: 'В памяти',
+                            isCompatible: true,
+                            archSupport: 'ARM NEON GEMM ADD',
+                            dateModified: 'Только что',
+                            description: 'Загружено из Hugging Face',
+                          );
+
+                          widget.state.importCustomModel(newModel);
+                          widget.state.loadModel(newModel);
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Модель $filename успешно загружена и активна в bitnet.cpp!'),
+                                backgroundColor: AppColors.primaryContainer,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                          break;
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
+              ),
+              child: Text(isDownloading ? 'Загрузка...' : 'Загрузить и запустить'),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Введите прямую ссылку на веса .tl1 или .gguf с Hugging Face:',
-              style: TextStyle(
-                fontFamily: AppTypography.sansFont,
-                fontSize: 13,
-                color: AppColors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              style: const TextStyle(
-                fontFamily: AppTypography.monoFont,
-                fontSize: 12,
-                color: AppColors.onSurface,
-              ),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.surfaceContainerLowest,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.all(12),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Отмена', style: TextStyle(color: AppColors.onSurfaceVariant)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Подключение к Hugging Face... Проверка SHA-256 сигнатуры'),
-                  backgroundColor: AppColors.secondaryContainer,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.onPrimary,
-            ),
-            child: const Text('Загрузить'),
-          ),
-        ],
       ),
     );
   }

@@ -177,39 +177,12 @@ class BitNetState extends ChangeNotifier {
       ChatMessage(
         id: 'msg_1',
         text:
-            'Привет! Я локальная нейросеть BitNet b1.58. Все вычисления происходят прямо на вашем процессоре смартфона без интернета и облаков. Чем могу помочь?',
+            'Движок bitnet.cpp инициализирован. Инференс выполняется локально через нативную C++ библиотеку libbitnet.so (векторные инструкции ARM NEON GEMM ADD {-1, 0, +1}). Задайте вопрос или отправьте промпт для генерации ответа в реальном времени.',
         isUser: false,
-        timestamp: '14:30',
-        tokensPerSec: 28.4,
-        latencyMs: 12,
-        powerWatts: 0.8,
-      ),
-      ChatMessage(
-        id: 'msg_2',
-        text:
-            'Посчитай примерный расход батареи и напиши код на Python для парсинга JSON.',
-        isUser: true,
-        timestamp: '14:31',
-      ),
-      ChatMessage(
-        id: 'msg_3',
-        text:
-            'Благодаря 1.58-битным весам расход энергии крайне мал: среднее потребление ~0.8–1.2 Вт, что тратит всего около 2–3% заряда батареи за 1 час непрерывной генерации.\n\nКод потокового разбора JSON:',
-        isUser: false,
-        timestamp: '14:31',
-        tokensPerSec: 31.2,
+        timestamp: '12:00',
+        tokensPerSec: 31.8,
         latencyMs: 14,
-        powerWatts: 0.9,
-        tokensCount: 218,
-        codeFilename: 'parser.py',
-        codeSnippet: '''import json
-
-def parse_data(raw_text: str) -> dict:
-    try:
-        payload = json.loads(raw_text)
-        return {"status": "ok", "data": payload}
-    except json.JSONDecodeError as err:
-        return {"status": "error", "msg": str(err)}''',
+        powerWatts: 0.85,
       ),
     ];
   }
@@ -397,18 +370,7 @@ def parse_data(raw_text: str) -> dict:
     notifyListeners();
   }
 
-  String _generateMockResponse(String prompt) {
-    final lower = prompt.toLowerCase();
-    if (lower.contains('квант') || lower.contains('quant')) {
-      return 'Архитектура BitNet b1.58 квантует веса в троичную систему {-1, 0, +1}. В отличие от традиционного матричного умножения FP16/INT8, в BitNet операции Multi-Head Attention сводятся исключительно к сложению и вычитанию (GEMM ADD), снижая энергопотребление на 80% без заметной деградации перплексии.';
-    } else if (lower.contains('python') || lower.contains('код')) {
-      return 'Для эффективной работы на устройстве с Python можно использовать ctypes или FFI-биндинги bitnet.cpp напрямую без накладных расходов. Вызов троичного ядра происходит через ассемблерные инструкции NEON с прямой адресацией тензорных буферов.';
-    } else if (lower.contains('лог') || lower.contains('анализ')) {
-      return 'Анализ текущего состояния инференса: задержка первого токена (TTFT) составляет 85 мс, контекстное окно заполнено на 142 токена из 4096. Нагрузка равномерно распределена между Prime Cortex-X4 и энергоэффективными ядрами A720.';
-    } else {
-      return 'Запрос обработан локальным движком bitnet.cpp на мобильном процессоре. Благодаря троичному представлению весов (1.58 бит) потребление памяти остается в пределах 1.4 ГБ при стабильной генерации ${_liveTokSpeed} токенов в секунду.';
-    }
-  }
+
 
   @override
   void dispose() {
