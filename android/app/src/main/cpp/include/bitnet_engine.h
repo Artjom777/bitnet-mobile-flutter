@@ -86,12 +86,15 @@ public:
 
     void stop_generation() { stop_requested_.store(true); }
 
+    std::string synthesize_reasoning_response(const std::string& prompt);
+
     BitNetTelemetry get_telemetry() const;
     const BitNetConfig& get_config() const { return config_; }
 
 private:
     BitNetConfig config_;
     bool model_loaded_ = false;
+    bool is_model_calibrated_ = false;
     std::atomic<bool> stop_requested_{false};
     mutable BitNetTelemetry telemetry_;
 
