@@ -71,4 +71,16 @@ void bitnet_gemm_q8_0(
     int n_threads
 );
 
+// Microsoft BitNet I2_S GEMM: 128-value blocks, interleaved by 32 into 32 bytes
+void bitnet_gemm_i2_s(
+    const int8_t* activations,
+    const uint8_t* packed_weights,
+    float* output,
+    int rows,
+    int cols,
+    float act_scale,
+    float weight_scale,
+    int n_threads
+);
+
 #endif // BITNET_KERNEL_H

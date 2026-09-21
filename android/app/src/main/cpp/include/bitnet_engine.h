@@ -67,6 +67,7 @@ struct BitNetLinear {
     int in_features = 0;  // cols
     int out_features = 0; // rows
     int type = -1;        // -1: default ternary packed, 0: F32, 1: F16, 7/8: Q8_0, 29/30: i2_s packed
+    float scale = 0.02f;
     std::vector<uint8_t> raw_data;
 
     void matvec(const float* x, float* y, int n_threads = 4) const;
@@ -76,6 +77,7 @@ struct BitNetLinear {
         in_features = 0;
         out_features = 0;
         type = -1;
+        scale = 0.02f;
     }
 };
 

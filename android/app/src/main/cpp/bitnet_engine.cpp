@@ -37,11 +37,19 @@ void BitNetLinear::matvec(const float* x, float* y, int n_threads) const {
     }
 
     // 2. BitNet 1.58b 2-bit packed ternary (i2_s or default engine)
-    if (type == 29 || type == 30 || type == -1) {
+    if (type == 29 || type == 30) {
         std::vector<int8_t> q_act(in_features);
         float act_scale = 1.0f;
         bitnet_quantize_activations(x, q_act.data(), &act_scale, in_features);
-        bitnet_gemm_ternary(q_act.data(), raw_data.data(), y, out_features, in_features, act_scale, 0.02f, n_threads);
+        bitnet_gemm_i2_s(q_act.data(), raw_data.data(), y, out_features, in_features, act_scale, scale, n_threads);
+        return;
+    }
+
+    if (type == -1) {
+        std::vector<int8_t> q_act(in_features);
+        float act_scale = 1.0f;
+        bitnet_quantize_activations(x, q_act.data(), &act_scale, in_features);
+        bitnet_gemm_ternary(q_act.data(), raw_data.data(), y, out_features, in_features, act_scale, scale, n_threads);
         return;
     }
 
@@ -365,19 +373,51 @@ void BitNetEngine::load_gguf_tensors(
             else if (ti.name.find("ffn_up.weight") != std::string::npos) target_linear = &lay.w_up;
             else if (ti.name.find("ffn_down.weight") != std::string::npos) target_linear = &lay.w_down;
 
-            if (target_linear != nullptr && ti.dims.size() >= 2) {
-                target_linear->in_features = static_cast<int>(ti.dims[0]);
-                target_linear->out_features = static_cast<int>(ti.dims[1]);
-                target_linear->type = ti.type;
+            if (target_linear != nullptr) {
+                if (ti.name.rfind("_scale") != std::string::npos && ti.type == 0) {
+                    float s = 0.0f;
+                    file.read(reinterpret_cast<char*>(&s), sizeof(float));
+                    if (s > 1e-6f && s < 10.0f) {
+                        target_linear->scale = s;
+                    }
+                    continue;
+                }
 
-                size_t byte_size = 0;
-                if (ti.type == 0) byte_size = static_cast<size_t>(target_linear->in_features) * target_linear->out_features * sizeof(float);
-                else if (ti.type == 1) byte_size = static_cast<size_t>(target_linear->in_features) * target_linear->out_features * sizeof(uint16_t);
-                else if (ti.type == 7 || ti.type == 8) byte_size = static_cast<size_t>(target_linear->out_features) * (target_linear->in_features / 32) * 34;
-                else byte_size = static_cast<size_t>(target_linear->out_features) * ((target_linear->in_features + 3) / 4);
+                if (ti.dims.size() >= 2) {
+                    target_linear->in_features = static_cast<int>(ti.dims[0]);
+                    target_linear->out_features = static_cast<int>(ti.dims[1]);
+                    target_linear->type = ti.type;
 
-                target_linear->raw_data.resize(byte_size);
-                file.read(reinterpret_cast<char*>(target_linear->raw_data.data()), byte_size);
+                    size_t byte_size = 0;
+                    if (ti.type == 0) {
+                        byte_size = static_cast<size_t>(target_linear->in_features) * target_linear->out_features * sizeof(float);
+                    } else if (ti.type == 1) {
+                        byte_size = static_cast<size_t>(target_linear->in_features) * target_linear->out_features * sizeof(uint16_t);
+                    } else if (ti.type == 7 || ti.type == 8) {
+                        byte_size = static_cast<size_t>(target_linear->out_features) * (target_linear->in_features / 32) * 34;
+                    } else if (ti.type == 29 || ti.type == 30) {
+                        // Microsoft I2_S format: (cols / 4) bytes per row + 32-byte tail
+                        size_t packed_bytes = static_cast<size_t>(target_linear->out_features) * (target_linear->in_features / 4);
+                        byte_size = packed_bytes + 32;
+                    } else {
+                        byte_size = static_cast<size_t>(target_linear->out_features) * ((target_linear->in_features + 3) / 4);
+                    }
+
+                    target_linear->raw_data.resize(byte_size);
+                    file.read(reinterpret_cast<char*>(target_linear->raw_data.data()), byte_size);
+
+                    // If I2_S, extract scale from 32-byte tail
+                    if (ti.type == 29 || ti.type == 30) {
+                        size_t packed_bytes = static_cast<size_t>(target_linear->out_features) * (target_linear->in_features / 4);
+                        if (target_linear->raw_data.size() >= packed_bytes + 4) {
+                            float tail_s = 0.0f;
+                            std::memcpy(&tail_s, target_linear->raw_data.data() + packed_bytes, sizeof(float));
+                            if (tail_s > 1e-6f && tail_s < 10.0f) {
+                                target_linear->scale = tail_s;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -596,18 +636,33 @@ int BitNetEngine::tokenize(const std::string& text, std::vector<int>& tokens) {
         tokens.push_back(bos_token_id_);
     }
 
-    // Convert spaces to SentencePiece ' ' (\xe2\x96\x81) if ' ' is in vocab
     const std::string sp_space = "\xe2\x96\x81";
+    const std::string bpe_space = "\xc4\xa0";
+    const std::string bpe_newline = "\xc4\x8a";
+    const std::string bpe_tab = "\xc4\x89";
+
     bool use_sp = (token_to_id_.find(sp_space) != token_to_id_.end());
+    bool use_bpe = (token_to_id_.find(bpe_space) != token_to_id_.end());
 
     std::string norm_text;
     norm_text.reserve(text.size() * 2);
-    if (use_sp && !text.empty() && text[0] != ' ') {
-        norm_text += sp_space;
-    }
-    for (char c : text) {
-        if (c == ' ' && use_sp) {
+    if (!text.empty()) {
+        if (use_bpe && text[0] != ' ' && text[0] != '\n') {
+            norm_text += bpe_space;
+        } else if (use_sp && text[0] != ' ') {
             norm_text += sp_space;
+        }
+    }
+
+    for (char c : text) {
+        if (c == ' ') {
+            if (use_bpe) norm_text += bpe_space;
+            else if (use_sp) norm_text += sp_space;
+            else norm_text.push_back(' ');
+        } else if (c == '\n' && use_bpe) {
+            norm_text += bpe_newline;
+        } else if (c == '\t' && use_bpe) {
+            norm_text += bpe_tab;
         } else {
             norm_text.push_back(c);
         }
@@ -670,16 +725,35 @@ std::string BitNetEngine::token_to_str(int token_id) {
         }
     }
 
-    // Replace SentencePiece space character '\xe2\x96\x81' ( ) with regular space ' '
+    // Decode BPE and SentencePiece characters:
+    // - '\xe2\x96\x81' (SentencePiece space ' ') -> ' '
+    // - '\xc4\xa0' (GPT-2 BPE space 'Ġ') -> ' '
+    // - '\xc4\x8a' (GPT-2 BPE newline 'Ċ') -> '\n'
+    // - '\xc4\x89' (GPT-2 BPE tab 'ĉ') -> '\t'
     std::string result;
     result.reserve(raw.size());
     for (size_t i = 0; i < raw.size(); ) {
-        if (i + 2 < raw.size() &&
-            static_cast<unsigned char>(raw[i]) == 0xE2 &&
+        unsigned char b0 = static_cast<unsigned char>(raw[i]);
+        if (b0 == 0xE2 && i + 2 < raw.size() &&
             static_cast<unsigned char>(raw[i+1]) == 0x96 &&
             static_cast<unsigned char>(raw[i+2]) == 0x81) {
             result.push_back(' ');
             i += 3;
+        } else if (b0 == 0xC4 && i + 1 < raw.size()) {
+            unsigned char b1 = static_cast<unsigned char>(raw[i+1]);
+            if (b1 == 0xA0) { // 'Ġ' -> space
+                result.push_back(' ');
+                i += 2;
+            } else if (b1 == 0x8A) { // 'Ċ' -> newline
+                result.push_back('\n');
+                i += 2;
+            } else if (b1 == 0x89) { // 'ĉ' -> tab
+                result.push_back('\t');
+                i += 2;
+            } else {
+                result.push_back(raw[i]);
+                i++;
+            }
         } else {
             result.push_back(raw[i]);
             i++;
@@ -897,14 +971,34 @@ int BitNetEngine::sample_next_token(
     const int vocab_size = config_.vocab_size;
     if (vocab_size <= 0) return 0;
 
-    // Repetition penalty on recent history (last 64 tokens)
+    // Consecutive repetition suppression: prevent immediate repeating of the previous 1-2 tokens
+    if (!history.empty()) {
+        int prev1 = history.back();
+        if (prev1 >= 0 && prev1 < vocab_size) {
+            logits[prev1] -= 10.0f;
+        }
+        if (history.size() >= 2) {
+            int prev2 = history[history.size() - 2];
+            if (prev2 >= 0 && prev2 < vocab_size) {
+                logits[prev2] -= 5.0f;
+            }
+        }
+    }
+
+    // Exponential frequency repetition penalty on recent history (last 128 tokens)
     if (rep_penalty > 1.0f && !history.empty()) {
-        size_t start_idx = history.size() > 64 ? history.size() - 64 : 0;
+        std::unordered_map<int, int> counts;
+        size_t start_idx = history.size() > 128 ? history.size() - 128 : 0;
         for (size_t i = start_idx; i < history.size(); ++i) {
-            int tok = history[i];
+            counts[history[i]]++;
+        }
+        for (const auto& kv : counts) {
+            int tok = kv.first;
+            int count = kv.second;
             if (tok >= 0 && tok < vocab_size) {
-                if (logits[tok] < 0.0f) logits[tok] *= rep_penalty;
-                else logits[tok] /= rep_penalty;
+                float penalty = std::pow(rep_penalty, count);
+                if (logits[tok] < 0.0f) logits[tok] *= penalty;
+                else logits[tok] /= penalty;
             }
         }
     }

@@ -352,3 +352,77 @@ void bitnet_gemm_q8_0(
     }
 }
 
+void bitnet_gemm_i2_s(
+    const int8_t* activations,
+    const uint8_t* packed_weights,
+    float* output,
+    int rows,
+    int cols,
+    float act_scale,
+    float weight_scale,
+    int n_threads
+) {
+    const int bytes_per_row = cols / 4;
+    const int blocks_per_row = cols / 128;
+    const float final_scale = act_scale * weight_scale;
+
+    auto worker = [&](int start_r, int end_r) {
+        for (int r = start_r; r < end_r; ++r) {
+            const uint8_t* row_bytes = packed_weights + static_cast<size_t>(r) * bytes_per_row;
+            int32_t accumulator = 0;
+
+            for (int blk = 0; blk < blocks_per_row; ++blk) {
+                const uint8_t* blk_ptr = row_bytes + blk * 32;
+                const int8_t* act_blk = activations + blk * 128;
+
+                const int8_t* act0 = act_blk + 0 * 32;
+                const int8_t* act1 = act_blk + 1 * 32;
+                const int8_t* act2 = act_blk + 2 * 32;
+                const int8_t* act3 = act_blk + 3 * 32;
+
+                for (int gp = 0; gp < 32; ++gp) {
+                    uint8_t byte = blk_ptr[gp];
+                    if (byte == 0x55) continue; // All four are code 1 (zero: 0b01010101)
+
+                    uint8_t c0 = (byte >> 6) & 3;
+                    uint8_t c1 = (byte >> 4) & 3;
+                    uint8_t c2 = (byte >> 2) & 3;
+                    uint8_t c3 = (byte >> 0) & 3;
+
+                    if (c0 == 2) accumulator += act0[gp];
+                    else if (c0 == 0) accumulator -= act0[gp];
+
+                    if (c1 == 2) accumulator += act1[gp];
+                    else if (c1 == 0) accumulator -= act1[gp];
+
+                    if (c2 == 2) accumulator += act2[gp];
+                    else if (c2 == 0) accumulator -= act2[gp];
+
+                    if (c3 == 2) accumulator += act3[gp];
+                    else if (c3 == 0) accumulator -= act3[gp];
+                }
+            }
+
+            output[r] = accumulator * final_scale;
+        }
+    };
+
+    if (n_threads <= 1 || rows < 16) {
+        worker(0, rows);
+    } else {
+        std::vector<std::thread> workers;
+        int chunk = (rows + n_threads - 1) / n_threads;
+        for (int t = 0; t < n_threads; ++t) {
+            int s = t * chunk;
+            int e = std::min(rows, s + chunk);
+            if (s < e) {
+                workers.emplace_back(worker, s, e);
+            }
+        }
+        for (auto& w : workers) {
+            w.join();
+        }
+    }
+}
+
+
