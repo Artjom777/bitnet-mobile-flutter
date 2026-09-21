@@ -26,9 +26,9 @@ class ModelDownloader {
   static const Map<String, String> officialModels = {
     'BitNet-b1.58-2B-4T (Microsoft Research i2_s, 1.15 ГБ)':
         'https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf',
-    'BitNet-b1.58-3B (GreenSky Ternary q2_2, 1.2 ГБ)':
-        'https://huggingface.co/Green-Sky/bitnet_b1_58-3B-GGUF/resolve/main/bitnet_b1_58-3B.q2_2.gguf',
-    'BitNet-M7-70M (Компактный квант, 79 МБ)':
+    'BitNet-b1.58-Large (Microsoft Research i2_s, 400 МБ)':
+        'https://huggingface.co/microsoft/bitnet-b1.58-large-gguf/resolve/main/ggml-model-i2_s.gguf',
+    'BitNet-M7-70M (Компактный квант Q8_0, 79 МБ)':
         'https://huggingface.co/gate369/Bitnet-M7-70m-Q8_0-GGUF/resolve/main/bitnet-m7-70m.Q8_0.gguf',
   };
 

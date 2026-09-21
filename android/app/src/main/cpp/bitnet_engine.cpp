@@ -21,6 +21,53 @@
 #define LOGE(...) do { fprintf(stderr, "[BitNetEngine ERROR] "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); } while(0)
 #endif
 
+// Precomputed GPT-2 / Byte-Level BPE tables
+static const std::vector<std::string> s_gpt2_byte_to_bpe = []() {
+    std::vector<std::string> table(256);
+    std::vector<bool> in_bs(256, false);
+
+    for (int b = 33; b <= 126; ++b) in_bs[b] = true;
+    for (int b = 161; b <= 172; ++b) in_bs[b] = true;
+    for (int b = 174; b <= 255; ++b) in_bs[b] = true;
+
+    auto codepoint_to_utf8 = [](uint32_t cp) -> std::string {
+        std::string s;
+        if (cp < 0x80) {
+            s.push_back(static_cast<char>(cp));
+        } else if (cp < 0x800) {
+            s.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            s.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            s.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            s.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            s.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+        return s;
+    };
+
+    for (int b = 0; b < 256; ++b) {
+        if (in_bs[b]) {
+            table[b] = codepoint_to_utf8(static_cast<uint32_t>(b));
+        }
+    }
+    uint32_t n = 0;
+    for (int b = 0; b < 256; ++b) {
+        if (!in_bs[b]) {
+            table[b] = codepoint_to_utf8(256 + n);
+            n++;
+        }
+    }
+    return table;
+}();
+
+static const std::unordered_map<std::string, uint8_t> s_bpe_to_byte = []() {
+    std::unordered_map<std::string, uint8_t> map;
+    for (int b = 0; b < 256; ++b) {
+        map[s_gpt2_byte_to_bpe[b]] = static_cast<uint8_t>(b);
+    }
+    return map;
+}();
+
 void BitNetLinear::matvec(const float* x, float* y, int n_threads) const {
     if (in_features <= 0 || out_features <= 0 || raw_data.empty()) {
         std::fill(y, y + out_features, 0.0f);
@@ -36,7 +83,7 @@ void BitNetLinear::matvec(const float* x, float* y, int n_threads) const {
         return;
     }
 
-    // 2. BitNet 1.58b 2-bit packed ternary (i2_s or default engine)
+    // 2. Microsoft BitNet I2_S format (2-bit signed ternary interleaved blocks)
     if (type == 29 || type == 30) {
         std::vector<int8_t> q_act(in_features);
         float act_scale = 1.0f;
@@ -45,6 +92,7 @@ void BitNetLinear::matvec(const float* x, float* y, int n_threads) const {
         return;
     }
 
+    // 3. Fallback sequential packed ternary
     if (type == -1) {
         std::vector<int8_t> q_act(in_features);
         float act_scale = 1.0f;
@@ -53,7 +101,7 @@ void BitNetLinear::matvec(const float* x, float* y, int n_threads) const {
         return;
     }
 
-    // 3. FP32
+    // 4. FP32
     if (type == 0) {
         const float* w = reinterpret_cast<const float*>(raw_data.data());
         auto worker = [&](int start_r, int end_r) {
@@ -96,7 +144,7 @@ void BitNetLinear::matvec(const float* x, float* y, int n_threads) const {
         return;
     }
 
-    // 4. FP16
+    // 5. FP16
     if (type == 1) {
         const uint16_t* w = reinterpret_cast<const uint16_t*>(raw_data.data());
         for (int r = 0; r < out_features; ++r) {
@@ -191,6 +239,7 @@ void BitNetEngine::init_default_weights() {
         lin.in_features = in_f;
         lin.out_features = out_f;
         lin.type = -1; // packed ternary
+        lin.scale = 0.02f;
         lin.raw_data.resize(bytes);
         for (size_t i = 0; i < lin.raw_data.size(); ++i) {
             uint8_t p = (dist(rng) & 0x3) | ((dist(rng) & 0x3) << 2) |
@@ -312,6 +361,7 @@ void BitNetEngine::load_gguf_tensors(
             if (ti.type == 0) byte_size = static_cast<size_t>(lm_head_.in_features) * lm_head_.out_features * sizeof(float);
             else if (ti.type == 1) byte_size = static_cast<size_t>(lm_head_.in_features) * lm_head_.out_features * sizeof(uint16_t);
             else if (ti.type == 7 || ti.type == 8) byte_size = static_cast<size_t>(lm_head_.out_features) * (lm_head_.in_features / 32) * 34;
+            else if (ti.type == 29 || ti.type == 30) byte_size = static_cast<size_t>(lm_head_.out_features) * (lm_head_.in_features / 4) + 32;
             else byte_size = static_cast<size_t>(lm_head_.out_features) * ((lm_head_.in_features + 3) / 4);
 
             lm_head_.raw_data.resize(byte_size);
@@ -374,6 +424,7 @@ void BitNetEngine::load_gguf_tensors(
             else if (ti.name.find("ffn_down.weight") != std::string::npos) target_linear = &lay.w_down;
 
             if (target_linear != nullptr) {
+                // Check if this is a dedicated scale tensor (*_scale)
                 if (ti.name.rfind("_scale") != std::string::npos && ti.type == 0) {
                     float s = 0.0f;
                     file.read(reinterpret_cast<char*>(&s), sizeof(float));
@@ -478,33 +529,37 @@ bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
             } else if (key == "general.name") {
                 config_.model_name = val;
             }
-        } else if (val_type == 4) { // UINT32
-            uint32_t val = 0;
-            file.read(reinterpret_cast<char*>(&val), sizeof(val));
-            if (key.find("embedding_length") != std::string::npos) {
-                config_.dim = val;
-            } else if (key.find("feed_forward_length") != std::string::npos) {
-                config_.hidden_dim = val;
-            } else if (key.find("block_count") != std::string::npos) {
-                config_.n_layers = val;
-            } else if (key.find("head_count") != std::string::npos && key.find("head_count_kv") == std::string::npos) {
-                config_.n_heads = val;
-            } else if (key.find("context_length") != std::string::npos) {
-                config_.max_context = std::min(static_cast<int>(val), 4096);
-            } else if (key.find("bos_token_id") != std::string::npos) {
-                bos_token_id_ = static_cast<int>(val);
-            } else if (key.find("eos_token_id") != std::string::npos) {
-                eos_token_id_ = static_cast<int>(val);
-            } else if (key == "general.alignment") {
-                alignment = val;
+        } else if (val_type == 0 || val_type == 1 || val_type == 7 ||
+                   val_type == 2 || val_type == 3 ||
+                   val_type == 4 || val_type == 5 ||
+                   val_type == 10 || val_type == 11) { // Integer types
+            uint64_t int_val = 0;
+            if (val_type == 0 || val_type == 1 || val_type == 7) {
+                uint8_t v8 = 0; file.read(reinterpret_cast<char*>(&v8), 1); int_val = v8;
+            } else if (val_type == 2 || val_type == 3) {
+                uint16_t v16 = 0; file.read(reinterpret_cast<char*>(&v16), 2); int_val = v16;
+            } else if (val_type == 4 || val_type == 5) {
+                uint32_t v32 = 0; file.read(reinterpret_cast<char*>(&v32), 4); int_val = v32;
+            } else {
+                file.read(reinterpret_cast<char*>(&int_val), 8);
             }
-        } else if (val_type == 5) { // INT32
-            int32_t val = 0;
-            file.read(reinterpret_cast<char*>(&val), sizeof(val));
-            if (key.find("bos_token_id") != std::string::npos) {
-                bos_token_id_ = val;
+
+            if (key.find("embedding_length") != std::string::npos) {
+                config_.dim = static_cast<int>(int_val);
+            } else if (key.find("feed_forward_length") != std::string::npos) {
+                config_.hidden_dim = static_cast<int>(int_val);
+            } else if (key.find("block_count") != std::string::npos) {
+                config_.n_layers = static_cast<int>(int_val);
+            } else if (key.find("head_count") != std::string::npos && key.find("head_count_kv") == std::string::npos) {
+                config_.n_heads = static_cast<int>(int_val);
+            } else if (key.find("context_length") != std::string::npos) {
+                config_.max_context = std::min(static_cast<int>(int_val), 4096);
+            } else if (key.find("bos_token_id") != std::string::npos) {
+                bos_token_id_ = static_cast<int>(int_val);
             } else if (key.find("eos_token_id") != std::string::npos) {
-                eos_token_id_ = val;
+                eos_token_id_ = static_cast<int>(int_val);
+            } else if (key == "general.alignment") {
+                alignment = static_cast<uint32_t>(int_val);
             }
         } else if (val_type == 6) { // FLOAT32
             float val = 0.0f;
@@ -537,12 +592,8 @@ bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
                     else if (elem_type == 2 || elem_type == 3) file.seekg(2, std::ios::cur);
                 }
             }
-        } else if (val_type == 10 || val_type == 11 || val_type == 12) {
+        } else if (val_type == 12) { // 64-bit float
             file.seekg(8, std::ios::cur);
-        } else if (val_type == 0 || val_type == 1 || val_type == 7) {
-            file.seekg(1, std::ios::cur);
-        } else if (val_type == 2 || val_type == 3) {
-            file.seekg(2, std::ios::cur);
         }
     }
 
@@ -563,11 +614,33 @@ bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
         tensor_infos.push_back(ti);
     }
 
-    if (config_.n_heads > 0) {
-        config_.head_dim = config_.dim / config_.n_heads;
+    // Infer dimensions from tensor shapes if metadata was missing or incomplete
+    for (const auto& ti : tensor_infos) {
+        if (ti.name.find("attn_q.weight") != std::string::npos && ti.dims.size() >= 2) {
+            config_.dim = static_cast<int>(ti.dims[0]);
+        }
+        if (ti.name.find("ffn_gate.weight") != std::string::npos && ti.dims.size() >= 2) {
+            config_.hidden_dim = static_cast<int>(ti.dims[1]);
+        }
+        if (ti.name.rfind("blk.", 0) == 0) {
+            size_t dot2 = ti.name.find('.', 4);
+            if (dot2 != std::string::npos) {
+                int l_idx = std::atoi(ti.name.substr(4, dot2 - 4).c_str());
+                if (l_idx + 1 > config_.n_layers) {
+                    config_.n_layers = l_idx + 1;
+                }
+            }
+        }
     }
 
-    LOGI("GGUF BitNet Model metadata configured: dim=%d, hidden_dim=%d, layers=%d, heads=%d, vocab=%d, bos=%d, eos=%d",
+    if (config_.n_heads > 0) {
+        config_.head_dim = config_.dim / config_.n_heads;
+    } else {
+        config_.n_heads = config_.dim / 64;
+        config_.head_dim = 64;
+    }
+
+    LOGI("GGUF BitNet Model configured: dim=%d, hidden_dim=%d, layers=%d, heads=%d, vocab=%d, bos=%d, eos=%d",
          config_.dim, config_.hidden_dim, config_.n_layers, config_.n_heads, config_.vocab_size, bos_token_id_, eos_token_id_);
 
     // Initialize layer structures and cache
@@ -637,34 +710,33 @@ int BitNetEngine::tokenize(const std::string& text, std::vector<int>& tokens) {
     }
 
     const std::string sp_space = "\xe2\x96\x81";
-    const std::string bpe_space = "\xc4\xa0";
-    const std::string bpe_newline = "\xc4\x8a";
-    const std::string bpe_tab = "\xc4\x89";
+    const std::string bpe_space = "\xc4\xa0"; // 'Ġ'
 
     bool use_sp = (token_to_id_.find(sp_space) != token_to_id_.end());
     bool use_bpe = (token_to_id_.find(bpe_space) != token_to_id_.end());
 
     std::string norm_text;
-    norm_text.reserve(text.size() * 2);
-    if (!text.empty()) {
-        if (use_bpe && text[0] != ' ' && text[0] != '\n') {
+    norm_text.reserve(text.size() * 3);
+
+    if (use_bpe) {
+        // Prepend BPE space if prompt doesn't start with whitespace
+        if (!text.empty() && text[0] != ' ' && text[0] != '\n') {
             norm_text += bpe_space;
-        } else if (use_sp && text[0] != ' ') {
+        }
+        // Map every byte to its GPT-2 BPE Unicode character
+        for (unsigned char c : text) {
+            norm_text += s_gpt2_byte_to_bpe[c];
+        }
+    } else {
+        if (!text.empty() && use_sp && text[0] != ' ') {
             norm_text += sp_space;
         }
-    }
-
-    for (char c : text) {
-        if (c == ' ') {
-            if (use_bpe) norm_text += bpe_space;
-            else if (use_sp) norm_text += sp_space;
-            else norm_text.push_back(' ');
-        } else if (c == '\n' && use_bpe) {
-            norm_text += bpe_newline;
-        } else if (c == '\t' && use_bpe) {
-            norm_text += bpe_tab;
-        } else {
-            norm_text.push_back(c);
+        for (char c : text) {
+            if (c == ' ' && use_sp) {
+                norm_text += sp_space;
+            } else {
+                norm_text.push_back(c);
+            }
         }
     }
 
@@ -713,7 +785,8 @@ std::string BitNetEngine::token_to_str(int token_id) {
 
     // Control tokens
     if (raw == "<s>" || raw == "</s>" || raw == "<unk>" || raw == "<pad>" ||
-        raw == "<|im_start|>" || raw == "<|im_end|>" || raw == "<|endoftext|>" || raw == "<|end_of_text|>") {
+        raw == "<|im_start|>" || raw == "<|im_end|>" || raw == "<|endoftext|>" || raw == "<|end_of_text|>" ||
+        raw == "<|extra_0|>" || raw == "<|extra_1|>") {
         return "";
     }
 
@@ -725,11 +798,39 @@ std::string BitNetEngine::token_to_str(int token_id) {
         }
     }
 
-    // Decode BPE and SentencePiece characters:
-    // - '\xe2\x96\x81' (SentencePiece space ' ') -> ' '
-    // - '\xc4\xa0' (GPT-2 BPE space 'Ġ') -> ' '
-    // - '\xc4\x8a' (GPT-2 BPE newline 'Ċ') -> '\n'
-    // - '\xc4\x89' (GPT-2 BPE tab 'ĉ') -> '\t'
+    // Check if token uses GPT-2 Byte-Level BPE
+    bool has_bpe = (token_to_id_.find("\xc4\xa0") != token_to_id_.end());
+    if (has_bpe) {
+        std::string out_bytes;
+        out_bytes.reserve(raw.size());
+        for (size_t i = 0; i < raw.size(); ) {
+            // Try matching 2-byte or 1-byte BPE characters
+            bool found_byte = false;
+            if (i + 1 < raw.size()) {
+                std::string sub2 = raw.substr(i, 2);
+                auto it = s_bpe_to_byte.find(sub2);
+                if (it != s_bpe_to_byte.end()) {
+                    out_bytes.push_back(static_cast<char>(it->second));
+                    i += 2;
+                    found_byte = true;
+                }
+            }
+            if (!found_byte) {
+                std::string sub1 = raw.substr(i, 1);
+                auto it = s_bpe_to_byte.find(sub1);
+                if (it != s_bpe_to_byte.end()) {
+                    out_bytes.push_back(static_cast<char>(it->second));
+                    i += 1;
+                } else {
+                    out_bytes.push_back(raw[i]);
+                    i += 1;
+                }
+            }
+        }
+        return out_bytes;
+    }
+
+    // SentencePiece decoding: replace '\xe2\x96\x81' with regular space
     std::string result;
     result.reserve(raw.size());
     for (size_t i = 0; i < raw.size(); ) {
@@ -739,21 +840,6 @@ std::string BitNetEngine::token_to_str(int token_id) {
             static_cast<unsigned char>(raw[i+2]) == 0x81) {
             result.push_back(' ');
             i += 3;
-        } else if (b0 == 0xC4 && i + 1 < raw.size()) {
-            unsigned char b1 = static_cast<unsigned char>(raw[i+1]);
-            if (b1 == 0xA0) { // 'Ġ' -> space
-                result.push_back(' ');
-                i += 2;
-            } else if (b1 == 0x8A) { // 'Ċ' -> newline
-                result.push_back('\n');
-                i += 2;
-            } else if (b1 == 0x89) { // 'ĉ' -> tab
-                result.push_back('\t');
-                i += 2;
-            } else {
-                result.push_back(raw[i]);
-                i++;
-            }
         } else {
             result.push_back(raw[i]);
             i++;
@@ -971,16 +1057,16 @@ int BitNetEngine::sample_next_token(
     const int vocab_size = config_.vocab_size;
     if (vocab_size <= 0) return 0;
 
-    // Consecutive repetition suppression: prevent immediate repeating of the previous 1-2 tokens
+    // Consecutive repetition block: prevent immediate repeating of the previous 1-2 tokens
     if (!history.empty()) {
         int prev1 = history.back();
         if (prev1 >= 0 && prev1 < vocab_size) {
-            logits[prev1] -= 10.0f;
+            logits[prev1] -= 12.0f;
         }
         if (history.size() >= 2) {
             int prev2 = history[history.size() - 2];
             if (prev2 >= 0 && prev2 < vocab_size) {
-                logits[prev2] -= 5.0f;
+                logits[prev2] -= 6.0f;
             }
         }
     }
@@ -1097,6 +1183,10 @@ int BitNetEngine::generate_stream(
     std::vector<float> logits(config_.vocab_size);
     int pos = 0;
     kv_pos_ = 0;
+
+    // Reset KV Cache for fresh turn
+    if (!k_cache_.empty()) std::fill(k_cache_.begin(), k_cache_.end(), 0.0f);
+    if (!v_cache_.empty()) std::fill(v_cache_.begin(), v_cache_.end(), 0.0f);
 
     for (int tok : prompt_tokens) {
         if (stop_requested_.load()) {
