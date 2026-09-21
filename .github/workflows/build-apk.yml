@@ -35,6 +35,12 @@ jobs:
       - name: Check Flutter Version
         run: flutter --version
 
+      - name: Download BitNet 70M Model for Bundling
+        run: |
+          mkdir -p assets/models
+          curl -L "https://huggingface.co/gate369/Bitnet-M7-70m-Q8_0-GGUF/resolve/main/bitnet-m7-70m.Q8_0.gguf" -o assets/models/bitnet-m7-70m.Q8_0.gguf
+          ls -lh assets/models/
+
       - name: Get Dependencies
         run: flutter pub get
 

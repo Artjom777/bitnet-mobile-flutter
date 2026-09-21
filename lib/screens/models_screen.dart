@@ -310,11 +310,12 @@ class _ModelsScreenState extends State<ModelsScreen> {
                           );
 
                           widget.state.importModel(newModel);
+                          widget.state.loadModel(newModel);
 
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Модель $filename успешно сохранена на накопителе!'),
+                                content: Text('Модель $filename успешно скачана и загружена в память!'),
                                 backgroundColor: AppColors.secondary,
                                 behavior: SnackBarBehavior.floating,
                               ),

@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../models/chat_message.dart';
 import '../models/model_item.dart';
 import '../models/inference_settings.dart';
 import '../services/bitnet_ffi.dart';
+import '../services/model_downloader.dart';
 import '../services/russian_skill_service.dart';
 
 class BitNetState extends ChangeNotifier {
@@ -74,33 +76,38 @@ class BitNetState extends ChangeNotifier {
   }
 
   void _initModels() {
-    _activeModel = ModelItem.builtin;
-    _models = [ModelItem.builtin];
+    _activeModel = ModelItem.empty;
+    _models = [];
     _pickerFiles = [];
-    scanLocalModelFiles();
+    _ensureDefaultModelAndScan();
+  }
+
+  Future<void> _ensureDefaultModelAndScan() async {
+    try {
+      final storageDir = await ModelDownloader.resolveModelStorageDir();
+      final targetPath = '${storageDir.path}/bitnet-m7-70m.Q8_0.gguf';
+      final targetFile = File(targetPath);
+
+      if (!targetFile.existsSync()) {
+        try {
+          final byteData = await rootBundle.load('assets/models/bitnet-m7-70m.Q8_0.gguf');
+          final buffer = byteData.buffer;
+          await targetFile.writeAsBytes(
+            buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+            flush: true,
+          );
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    await scanLocalModelFiles();
   }
 
   bool loadBuiltinModel() {
-    _activeModel = ModelItem.builtin.copyWith(isLoaded: true, status: 'В памяти');
-    if (!_models.any((m) => m.id == ModelItem.builtin.id)) {
-      _models.insert(0, _activeModel);
-    } else {
-      _models = _models.map((m) {
-        if (m.id == ModelItem.builtin.id) {
-          return _activeModel;
-        } else {
-          return m.copyWith(isLoaded: false, status: 'На накопителе');
-        }
-      }).toList();
+    if (_models.isNotEmpty) {
+      return loadModel(_models.first);
     }
-    BitNetFFI.instance.loadModel('builtin://bitnet_core_arm64');
-    _terminalLogs.add({
-      'tag': 'model_loaded',
-      'color': 'primary',
-      'text': 'bitnet.cpp: активировано встроенное ядро BitNet 1.58b',
-    });
-    notifyListeners();
-    return true;
+    return false;
   }
 
   void _initMessages() {
@@ -345,12 +352,12 @@ class BitNetState extends ChangeNotifier {
         _models.add(f);
       }
     }
-    _models.removeWhere((m) => !m.filename.startsWith('builtin://') && m.filename.isNotEmpty && !File(m.filename).existsSync());
-    if (!_activeModel.filename.startsWith('builtin://') && _activeModel.filename.isNotEmpty && !File(_activeModel.filename).existsSync()) {
-      _activeModel = ModelItem.builtin;
+    _models.removeWhere((m) => m.filename.isNotEmpty && !File(m.filename).existsSync());
+    if (_activeModel.filename.isNotEmpty && !File(_activeModel.filename).existsSync()) {
+      _activeModel = _models.isNotEmpty ? _models.first : ModelItem.empty;
     }
-    if (!_models.any((m) => m.id == ModelItem.builtin.id)) {
-      _models.insert(0, ModelItem.builtin);
+    if (!_activeModel.isLoaded && _models.isNotEmpty) {
+      loadModel(_models.first);
     }
 
     notifyListeners();
