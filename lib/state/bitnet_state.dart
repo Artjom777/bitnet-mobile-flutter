@@ -33,6 +33,8 @@ class BitNetState extends ChangeNotifier {
   // Chat Messages
   List<ChatMessage> _messages = [];
   List<ChatMessage> get messages => _messages;
+  bool _isGenerating = false;
+  bool get isGenerating => _isGenerating;
 
   // Settings
   InferenceSettings _settings = const InferenceSettings();
@@ -356,9 +358,23 @@ class BitNetState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void stopGeneration() {
+    if (_isGenerating) {
+      BitNetFFI.instance.stopGeneration();
+      _isGenerating = false;
+      _terminalLogs.add({
+        'tag': 'bitnet_stop',
+        'color': 'tertiary',
+        'text': 'генерация остановлена пользователем',
+      });
+      notifyListeners();
+    }
+  }
+
   // Send Message with Real BitNet C++ Streaming Engine
   void sendMessage(String prompt) async {
-    if (prompt.trim().isEmpty) return;
+    if (_isGenerating || prompt.trim().isEmpty) return;
+    _isGenerating = true;
 
     final now = TimeOfDay.now();
     final timeStr =
@@ -408,6 +424,7 @@ class BitNetState extends ChangeNotifier {
       );
 
       await for (final token in tokenStream) {
+        if (!_isGenerating) break;
         buffer.write(token);
         tokenCount++;
 
@@ -422,29 +439,30 @@ class BitNetState extends ChangeNotifier {
       }
     } catch (e) {
       buffer.write('\n[bitnet.cpp error: $e]');
+    } finally {
+      _isGenerating = false;
+      stopwatch.stop();
+      final elapsedSec = stopwatch.elapsedMilliseconds / 1000.0;
+      final realSpeed = elapsedSec > 0 ? (tokenCount / elapsedSec) : 32.4;
+      _liveTokSpeed = double.parse(realSpeed.toStringAsFixed(1));
+
+      final idx = _messages.indexWhere((m) => m.id == asstId);
+      if (idx != -1) {
+        _messages[idx] = _messages[idx].copyWith(
+          text: buffer.toString(),
+          isStreaming: false,
+          tokensCount: tokenCount,
+          tokensPerSec: _liveTokSpeed,
+        );
+      }
+
+      _terminalLogs.add({
+        'tag': 'bitnet_done',
+        'color': 'secondary',
+        'text': 'sampled $tokenCount tokens @ ${_liveTokSpeed} t/s via ARM NEON',
+      });
+      notifyListeners();
     }
-
-    stopwatch.stop();
-    final elapsedSec = stopwatch.elapsedMilliseconds / 1000.0;
-    final realSpeed = elapsedSec > 0 ? (tokenCount / elapsedSec) : 32.4;
-    _liveTokSpeed = double.parse(realSpeed.toStringAsFixed(1));
-
-    final idx = _messages.indexWhere((m) => m.id == asstId);
-    if (idx != -1) {
-      _messages[idx] = _messages[idx].copyWith(
-        text: buffer.toString(),
-        isStreaming: false,
-        tokensCount: tokenCount,
-        tokensPerSec: _liveTokSpeed,
-      );
-    }
-
-    _terminalLogs.add({
-      'tag': 'bitnet_done',
-      'color': 'secondary',
-      'text': 'sampled $tokenCount tokens @ ${_liveTokSpeed} t/s via ARM NEON',
-    });
-    notifyListeners();
   }
 
 

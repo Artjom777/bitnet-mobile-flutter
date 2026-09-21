@@ -460,7 +460,11 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.verified, size: 18, color: AppColors.primary),
+                                Icon(
+                                  _selectedModel.isCompatible ? Icons.verified : Icons.warning_amber,
+                                  size: 18,
+                                  color: _selectedModel.isCompatible ? AppColors.secondary : AppColors.error,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   '${_selectedModel.filename} (${_selectedModel.size})',
@@ -476,15 +480,17 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.secondary.withOpacity(0.15),
+                                color: _selectedModel.isCompatible
+                                    ? AppColors.secondary.withOpacity(0.15)
+                                    : AppColors.error.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Text(
-                                'Сигнатура валидна',
+                              child: Text(
+                                _selectedModel.isCompatible ? 'Сигнатура валидна' : 'Несовместимо',
                                 style: TextStyle(
                                   fontFamily: AppTypography.monoFont,
                                   fontSize: 10,
-                                  color: AppColors.secondary,
+                                  color: _selectedModel.isCompatible ? AppColors.secondary : AppColors.error,
                                 ),
                               ),
                             ),
@@ -493,10 +499,16 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(Icons.speed, size: 14, color: AppColors.secondary),
+                            Icon(
+                              _selectedModel.isCompatible ? Icons.speed : Icons.info_outline,
+                              size: 14,
+                              color: _selectedModel.isCompatible ? AppColors.secondary : AppColors.error,
+                            ),
                             const SizedBox(width: 4),
                             Text(
-                              'Совместимо с ${_selectedModel.archSupport} • Троичные веса 1.58-бит',
+                              _selectedModel.isCompatible
+                                  ? 'Совместимо с ${_selectedModel.archSupport} • Троичные веса 1.58-бит'
+                                  : 'Требуется квантование tl1 или gguf для ядра ARM64',
                               style: const TextStyle(
                                 fontFamily: AppTypography.monoFont,
                                 fontSize: 10,
@@ -623,7 +635,11 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      _isValidated ? 'Готово к загрузке' : 'Открыть и валидировать',
+                                      _isValidated
+                                          ? 'Готово к загрузке'
+                                          : (_selectedModel.isCompatible
+                                              ? 'Открыть и валидировать'
+                                              : 'Формат не поддерживается'),
                                       style: const TextStyle(
                                         fontFamily: AppTypography.sansFont,
                                         fontSize: 14,

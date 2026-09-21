@@ -745,7 +745,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Switch(
                       value: s.offlineMode,
                       activeColor: AppColors.secondary,
-                      onChanged: (v) => widget.state.updateSettings(s.copyWith(offlineMode: v)),
+                      onChanged: (v) {
+                        widget.state.updateSettings(s.copyWith(offlineMode: v));
+                        _showFloatingToast(v ? 'Офлайн режим включен' : 'Офлайн режим отключен');
+                      },
                     ),
                   ],
                 ),
@@ -799,7 +802,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     Switch(
                       value: s.wakelock,
-                      onChanged: (v) => widget.state.updateSettings(s.copyWith(wakelock: v)),
+                      onChanged: (v) {
+                        widget.state.updateSettings(s.copyWith(wakelock: v));
+                        _showFloatingToast(v ? 'Wakelock CPU активирован' : 'Wakelock CPU отключен');
+                      },
                     ),
                   ],
                 ),

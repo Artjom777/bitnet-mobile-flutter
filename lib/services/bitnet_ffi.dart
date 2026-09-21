@@ -177,6 +177,12 @@ class BitNetFFI {
     );
   }
 
+  bool _stopRequested = false;
+
+  void stopGeneration() {
+    _stopRequested = true;
+  }
+
   Stream<String> generateStream(
     String prompt, {
     int maxTokens = 256,
@@ -185,6 +191,7 @@ class BitNetFFI {
     double repPenalty = 1.1,
   }) async* {
     init();
+    _stopRequested = false;
 
     // Stream controller for native tokens
     final controller = StreamController<String>();
@@ -193,11 +200,11 @@ class BitNetFFI {
       final pPrompt = prompt.toNativeUtf8();
 
       final nativeCallback = NativeCallable<BitNetTokenCallbackC>.isolateLocal((Pointer<Utf8> pToken, int isDone) {
-        if (isDone == 1) {
-          controller.close();
+        if (_stopRequested || isDone == 1) {
+          if (!controller.isClosed) controller.close();
         } else {
           final str = pToken.toDartString();
-          if (str.isNotEmpty) {
+          if (str.isNotEmpty && !controller.isClosed) {
             controller.add(str);
           }
         }

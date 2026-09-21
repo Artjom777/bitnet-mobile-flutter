@@ -263,9 +263,9 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                       ],
                     ),
                   ),
-                  const Text(
-                    '17.5% занято',
-                    style: TextStyle(
+                  Text(
+                    '${((widget.state.ramUsedGb / widget.state.ramTotalGb) * 100).toStringAsFixed(1)}% занято',
+                    style: const TextStyle(
                       fontFamily: AppTypography.monoFont,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -283,23 +283,16 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                   color: AppColors.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 70,
-                      decoration: BoxDecoration(
-                        color: AppColors.secondary,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                clipBehavior: Clip.antiAlias,
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: (widget.state.ramUsedGb / widget.state.ramTotalGb).clamp(0.0, 1.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    Container(
-                      width: 50,
-                      decoration: BoxDecoration(
-                        color: AppColors.tertiaryContainer.withOpacity(0.5),
-                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 14),

@@ -214,37 +214,52 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: widget.state.activeModel.isLoaded
-                          ? AppColors.secondary
-                          : AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
+            InkWell(
+              onTap: () {
+                if (!widget.state.activeModel.isLoaded) {
+                  widget.state.loadModel(widget.state.activeModel);
+                } else {
+                  widget.state.setTab(1);
+                }
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: widget.state.activeModel.isLoaded
+                        ? AppColors.secondary.withOpacity(0.35)
+                        : AppColors.error.withOpacity(0.35),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    widget.state.activeModel.isLoaded
-                        ? '${widget.state.activeModel.name} • Готова'
-                        : '${widget.state.activeModel.name} • Не загружена',
-                    style: const TextStyle(
-                      fontFamily: AppTypography.monoFont,
-                      fontSize: 11,
-                      color: AppColors.onSurfaceVariant,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: widget.state.activeModel.isLoaded
+                            ? AppColors.secondary
+                            : AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.state.activeModel.isLoaded
+                          ? '${widget.state.activeModel.name} • В памяти'
+                          : '${widget.state.activeModel.name} • Нажмите для загрузки',
+                      style: const TextStyle(
+                        fontFamily: AppTypography.monoFont,
+                        fontSize: 11,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -257,6 +272,33 @@ class _ChatScreenState extends State<ChatScreen> {
                 height: 1.45,
                 color: AppColors.onSurfaceVariant,
               ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => widget.state.setTab(1),
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('Модели'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.onSurface,
+                    side: const BorderSide(color: AppColors.outlineVariant),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: () => widget.state.setTab(3),
+                  icon: const Icon(Icons.tune, size: 16),
+                  label: const Text('Настройки'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.onSurface,
+                    side: const BorderSide(color: AppColors.outlineVariant),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -447,22 +489,22 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   tooltip: 'Голосовой ввод',
                 ),
-                // Send button
+                // Send / Stop button
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
+                  decoration: BoxDecoration(
+                    color: widget.state.isGenerating ? AppColors.error : AppColors.primary,
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    onPressed: _submitMessage,
-                    icon: const Icon(
-                      Icons.arrow_upward,
+                    onPressed: widget.state.isGenerating ? widget.state.stopGeneration : _submitMessage,
+                    icon: Icon(
+                      widget.state.isGenerating ? Icons.stop_rounded : Icons.arrow_upward,
                       size: 20,
                       color: AppColors.onPrimary,
                     ),
-                    tooltip: 'Отправить',
+                    tooltip: widget.state.isGenerating ? 'Остановить' : 'Отправить',
                   ),
                 ),
               ],

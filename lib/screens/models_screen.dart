@@ -513,25 +513,33 @@ class _ModelsScreenState extends State<ModelsScreen> {
                   ),
                   const SizedBox(height: 12),
                   // Storage path hint
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: const [
-                        Icon(Icons.folder_open, size: 16, color: AppColors.outline),
-                        SizedBox(width: 6),
-                        Text(
-                          '/Download/bitnet_models/',
-                          style: TextStyle(
-                            fontFamily: AppTypography.monoFont,
-                            fontSize: 11,
-                            color: AppColors.outline,
+                  InkWell(
+                    onTap: () => widget.state.setTab(3),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.folder_open, size: 16, color: AppColors.secondary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              widget.state.settings.modelsDirectory,
+                              style: const TextStyle(
+                                fontFamily: AppTypography.monoFont,
+                                fontSize: 11,
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      ],
+                          const Icon(Icons.chevron_right, size: 16, color: AppColors.outline),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -927,18 +935,20 @@ class _ModelsScreenState extends State<ModelsScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.memory, size: 15, color: AppColors.outline),
+                    Icon(
+                      model.isCompatible ? Icons.memory : Icons.warning_amber,
+                      size: 15,
+                      color: model.isCompatible ? AppColors.outline : AppColors.error,
+                    ),
                     const SizedBox(width: 4),
                     Text(
-                      model.id == 'phi3_mini_bitnet'
-                          ? 'Сверхбыстрый запуск'
-                          : 'Требуется ~${model.ramRequirement} ОЗУ',
+                      model.isCompatible
+                          ? 'Требуется ~${model.ramRequirement} ОЗУ'
+                          : 'Несовместимый формат',
                       style: TextStyle(
                         fontFamily: AppTypography.monoFont,
                         fontSize: 10,
-                        color: model.id == 'phi3_mini_bitnet'
-                            ? AppColors.secondary
-                            : AppColors.onSurfaceVariant,
+                        color: model.isCompatible ? AppColors.onSurfaceVariant : AppColors.error,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -952,25 +962,21 @@ class _ModelsScreenState extends State<ModelsScreen> {
                   ],
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => widget.state.loadModel(model),
+                  onPressed: model.isCompatible ? () => widget.state.loadModel(model) : null,
                   icon: Icon(
-                    model.id == 'phi3_mini_bitnet' ? Icons.download_for_offline : Icons.play_arrow,
+                    model.isCompatible ? Icons.play_arrow : Icons.block,
                     size: 16,
                   ),
                   label: Text(
-                    model.id == 'phi3_mini_bitnet' ? 'Загрузить' : 'Загрузить в движок',
+                    model.isCompatible ? 'Загрузить в ОЗУ' : 'Не поддерживается',
                     style: const TextStyle(
                       fontFamily: AppTypography.sansFont,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: model.id == 'phi3_mini_bitnet'
-                        ? AppColors.surfaceContainerHighest
-                        : AppColors.primaryContainer,
-                    foregroundColor: model.id == 'phi3_mini_bitnet'
-                        ? AppColors.onSurface
-                        : AppColors.onPrimaryContainer,
+                    backgroundColor: AppColors.primaryContainer,
+                    foregroundColor: AppColors.onPrimaryContainer,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),

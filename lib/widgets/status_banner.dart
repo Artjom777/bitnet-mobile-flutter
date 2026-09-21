@@ -12,16 +12,19 @@ class StatusBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final ramPercent = (state.ramUsedGb / state.ramTotalGb).clamp(0.0, 1.0);
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.outlineVariant.withOpacity(0.15),
-          width: 0.5,
+    return InkWell(
+      onTap: () => state.setTab(2),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.outlineVariant.withOpacity(0.15),
+            width: 0.5,
+          ),
         ),
-      ),
       child: Column(
         children: [
           // Row 1: Model title, offline badge, threads
@@ -166,6 +169,7 @@ class StatusBanner extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
