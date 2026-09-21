@@ -851,6 +851,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+        ),
         const SizedBox(height: 18),
 
         // SECTION 2.5: Russian Polyglot Skill
