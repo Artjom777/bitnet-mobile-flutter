@@ -418,10 +418,11 @@ class BitNetState extends ChangeNotifier {
     _messages.add(asstMsg);
     notifyListeners();
 
+    final backendName = _settings.deviceBackend.toUpperCase();
     _terminalLogs.add({
       'tag': 'bitnet_eval',
       'color': 'tertiary',
-      'text': 'eval prompt tokens with 1.58b GEMM ADD kernels...',
+      'text': 'eval prompt tokens on $backendName acceleration (max_tokens=${_settings.maxTokens})...',
     });
 
     final stopwatch = Stopwatch()..start();
@@ -431,6 +432,7 @@ class BitNetState extends ChangeNotifier {
     try {
       final tokenStream = BitNetFFI.instance.generateStream(
         prompt,
+        maxTokens: _settings.maxTokens,
         temperature: _settings.temperature,
         topP: _settings.topP,
         repPenalty: _settings.repetitionPenalty,

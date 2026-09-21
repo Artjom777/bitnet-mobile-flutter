@@ -9,6 +9,8 @@ class InferenceSettings {
   final bool offlineMode;
   final bool wakelock;
   final String modelsDirectory;
+  final int maxTokens;
+  final String deviceBackend; // 'cpu', 'gpu', 'npu'
   final bool cpuFreqLock;
   final bool lowPowerMode;
   final bool backgroundExecution;
@@ -17,6 +19,8 @@ class InferenceSettings {
     this.cpuThreads = 4,
     this.instructionSetEnabled = true,
     this.contextSize = 4096,
+    this.maxTokens = 1024,
+    this.deviceBackend = 'cpu',
     this.temperature = 0.70,
     this.topP = 0.90,
     this.repetitionPenalty = 1.10,
@@ -34,6 +38,8 @@ class InferenceSettings {
     int? cpuThreads,
     bool? instructionSetEnabled,
     int? contextSize,
+    int? maxTokens,
+    String? deviceBackend,
     double? temperature,
     double? topP,
     double? repetitionPenalty,
@@ -49,6 +55,8 @@ class InferenceSettings {
       cpuThreads: cpuThreads ?? this.cpuThreads,
       instructionSetEnabled: instructionSetEnabled ?? this.instructionSetEnabled,
       contextSize: contextSize ?? this.contextSize,
+      maxTokens: maxTokens ?? this.maxTokens,
+      deviceBackend: deviceBackend ?? this.deviceBackend,
       temperature: temperature ?? this.temperature,
       topP: topP ?? this.topP,
       repetitionPenalty: repetitionPenalty ?? this.repetitionPenalty,

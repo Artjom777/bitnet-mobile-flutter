@@ -536,6 +536,95 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
+              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              // Accelerator Backend Selector (CPU / GPU / NPU)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.memory, size: 18, color: AppColors.primary),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'Аппаратный ускоритель',
+                              style: TextStyle(
+                                fontFamily: AppTypography.sansFont,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.onSurface,
+                              ),
+                            ),
+                            Text(
+                              'Вычислительный бэкенд (CPU / GPU / NPU)',
+                              style: TextStyle(
+                                fontFamily: AppTypography.sansFont,
+                                fontSize: 11,
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          {'id': 'cpu', 'name': 'CPU (NEON)'},
+                          {'id': 'gpu', 'name': 'GPU (Vulkan)'},
+                          {'id': 'npu', 'name': 'NPU (NNAPI)'},
+                        ].map((b) {
+                          final isSel = s.deviceBackend == b['id'];
+                          return Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                widget.state.updateSettings(s.copyWith(deviceBackend: b['id']!));
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSel ? AppColors.primaryContainer : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    b['name']!,
+                                    style: TextStyle(
+                                      fontFamily: AppTypography.monoFont,
+                                      fontSize: 11,
+                                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                      color: isSel ? AppColors.onPrimaryContainer : AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -591,6 +680,105 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 divisions: 25,
                 displayValue: s.repetitionPenalty.toStringAsFixed(2),
                 onChanged: (v) => widget.state.updateSettings(s.copyWith(repetitionPenalty: v)),
+              ),
+              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              // Max Output Tokens Selector (128 .. 4096)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.short_text, size: 18, color: AppColors.secondary),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Максимум токенов',
+                                  style: TextStyle(
+                                    fontFamily: AppTypography.sansFont,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.onSurface,
+                                  ),
+                                ),
+                                Text(
+                                  'Длина генерации (128 — 4096 токенов)',
+                                  style: TextStyle(
+                                    fontFamily: AppTypography.sansFont,
+                                    fontSize: 11,
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Text(
+                          s.maxTokens.toString(),
+                          style: const TextStyle(
+                            fontFamily: AppTypography.monoFont,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [256, 512, 1024, 2048, 4096].map((tok) {
+                          final isSel = s.maxTokens == tok;
+                          return Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                widget.state.updateSettings(s.copyWith(maxTokens: tok));
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSel ? AppColors.secondaryContainer : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    tok.toString(),
+                                    style: TextStyle(
+                                      fontFamily: AppTypography.monoFont,
+                                      fontSize: 11,
+                                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                      color: isSel ? AppColors.onSecondaryContainer : AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const Divider(height: 1, color: AppColors.surfaceContainerHighest),
               // System Prompt

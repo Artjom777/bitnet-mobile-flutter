@@ -364,6 +364,52 @@ void bitnet_gemm_i2_s(
             const uint8_t* row_bytes = packed_weights + static_cast<size_t>(r) * bytes_per_row;
             int32_t accumulator = 0;
 
+#if defined(__aarch64__) && defined(__ARM_NEON)
+            const uint8x16_t mask = vdupq_n_u8(0x03);
+            const int8x16_t ones = vdupq_n_s8(1);
+            int32x4_t total_acc = vdupq_n_s32(0);
+
+            for (int blk = 0; blk < blocks_per_row; ++blk) {
+                const uint8_t* blk_ptr = row_bytes + blk * 32;
+                const int8_t* act_blk = activations + blk * 128;
+
+                const int8_t* act0 = act_blk + 0 * 32;
+                const int8_t* act1 = act_blk + 1 * 32;
+                const int8_t* act2 = act_blk + 2 * 32;
+                const int8_t* act3 = act_blk + 3 * 32;
+
+                // Process 32 bytes in two 16-byte halves
+                for (int half = 0; half < 2; ++half) {
+                    const int h_off = half * 16;
+                    uint8x16_t b = vld1q_u8(blk_ptr + h_off);
+
+                    // Decode ternary weights: c: 0->-1, 1->0, 2->+1 via (c - 1)
+                    int8x16_t w0 = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(vshrq_n_u8(b, 6), mask)), ones);
+                    int8x16_t w1 = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(vshrq_n_u8(b, 4), mask)), ones);
+                    int8x16_t w2 = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(vshrq_n_u8(b, 2), mask)), ones);
+                    int8x16_t w3 = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(b, mask)), ones);
+
+                    int8x16_t a0 = vld1q_s8(act0 + h_off);
+                    int8x16_t a1 = vld1q_s8(act1 + h_off);
+                    int8x16_t a2 = vld1q_s8(act2 + h_off);
+                    int8x16_t a3 = vld1q_s8(act3 + h_off);
+
+                    int16x8_t p0_l = vmull_s8(vget_low_s8(a0), vget_low_s8(w0));
+                    int16x8_t p0_h = vmull_s8(vget_high_s8(a0), vget_high_s8(w0));
+                    int16x8_t p1_l = vmlal_s8(p0_l, vget_low_s8(a1), vget_low_s8(w1));
+                    int16x8_t p1_h = vmlal_s8(p0_h, vget_high_s8(a1), vget_high_s8(w1));
+                    int16x8_t p2_l = vmlal_s8(p1_l, vget_low_s8(a2), vget_low_s8(w2));
+                    int16x8_t p2_h = vmlal_s8(p1_h, vget_high_s8(a2), vget_high_s8(w2));
+                    int16x8_t p3_l = vmlal_s8(p2_l, vget_low_s8(a3), vget_low_s8(w3));
+                    int16x8_t p3_h = vmlal_s8(p2_h, vget_high_s8(a3), vget_high_s8(w3));
+
+                    total_acc = vpadalq_s16(total_acc, p3_l);
+                    total_acc = vpadalq_s16(total_acc, p3_h);
+                }
+            }
+            accumulator = vgetq_lane_s32(total_acc, 0) + vgetq_lane_s32(total_acc, 1) +
+                          vgetq_lane_s32(total_acc, 2) + vgetq_lane_s32(total_acc, 3);
+#else
             for (int blk = 0; blk < blocks_per_row; ++blk) {
                 const uint8_t* blk_ptr = row_bytes + blk * 32;
                 const int8_t* act_blk = activations + blk * 128;
@@ -375,32 +421,22 @@ void bitnet_gemm_i2_s(
 
                 for (int gp = 0; gp < 32; ++gp) {
                     uint8_t byte = blk_ptr[gp];
-                    if (byte == 0x55) continue; // All four are code 1 (zero: 0b01010101)
+                    if (byte == 0x55) continue; // All zero (code 1: 0b01010101)
 
-                    uint8_t c0 = (byte >> 6) & 3;
-                    uint8_t c1 = (byte >> 4) & 3;
-                    uint8_t c2 = (byte >> 2) & 3;
-                    uint8_t c3 = (byte >> 0) & 3;
+                    int w0 = static_cast<int>((byte >> 6) & 3) - 1;
+                    int w1 = static_cast<int>((byte >> 4) & 3) - 1;
+                    int w2 = static_cast<int>((byte >> 2) & 3) - 1;
+                    int w3 = static_cast<int>(byte & 3) - 1;
 
-                    if (c0 == 2) accumulator += act0[gp];
-                    else if (c0 == 0) accumulator -= act0[gp];
-
-                    if (c1 == 2) accumulator += act1[gp];
-                    else if (c1 == 0) accumulator -= act1[gp];
-
-                    if (c2 == 2) accumulator += act2[gp];
-                    else if (c2 == 0) accumulator -= act2[gp];
-
-                    if (c3 == 2) accumulator += act3[gp];
-                    else if (c3 == 0) accumulator -= act3[gp];
+                    accumulator += act0[gp] * w0 + act1[gp] * w1 + act2[gp] * w2 + act3[gp] * w3;
                 }
             }
-
-            output[r] = accumulator * final_scale;
+#endif
+            output[r] = static_cast<float>(accumulator) * final_scale;
         }
     };
 
-    if (n_threads <= 1 || rows < 16) {
+    if (n_threads <= 1 || rows < 64) {
         worker(0, rows);
     } else {
         std::vector<std::thread> workers;

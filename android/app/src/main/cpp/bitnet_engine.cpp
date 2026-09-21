@@ -1080,14 +1080,19 @@ void BitNetEngine::forward_token(int token, int pos, float* out_logits) {
                 const float* emb_row = emb_base + v * dim;
                 float dot = 0.0f;
 #if defined(__aarch64__) && defined(__ARM_NEON)
-                float32x4_t vdot = vdupq_n_f32(0.0f);
+                float32x4_t vdot0 = vdupq_n_f32(0.0f);
+                float32x4_t vdot1 = vdupq_n_f32(0.0f);
+                float32x4_t vdot2 = vdupq_n_f32(0.0f);
+                float32x4_t vdot3 = vdupq_n_f32(0.0f);
                 int d = 0;
-                for (; d + 4 <= dim; d += 4) {
-                    float32x4_t vx = vld1q_f32(x.data() + d);
-                    float32x4_t ve = vld1q_f32(emb_row + d);
-                    vdot = vmlaq_f32(vdot, vx, ve);
+                for (; d + 16 <= dim; d += 16) {
+                    vdot0 = vmlaq_f32(vdot0, vld1q_f32(x.data() + d), vld1q_f32(emb_row + d));
+                    vdot1 = vmlaq_f32(vdot1, vld1q_f32(x.data() + d + 4), vld1q_f32(emb_row + d + 4));
+                    vdot2 = vmlaq_f32(vdot2, vld1q_f32(x.data() + d + 8), vld1q_f32(emb_row + d + 8));
+                    vdot3 = vmlaq_f32(vdot3, vld1q_f32(x.data() + d + 12), vld1q_f32(emb_row + d + 12));
                 }
-                dot = vaddvq_f32(vdot);
+                float32x4_t vsum = vaddq_f32(vaddq_f32(vdot0, vdot1), vaddq_f32(vdot2, vdot3));
+                dot = vaddvq_f32(vsum);
                 for (; d < dim; ++d) {
                     dot += x[d] * emb_row[d];
                 }
