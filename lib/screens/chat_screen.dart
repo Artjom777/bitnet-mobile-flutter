@@ -50,7 +50,18 @@ class _ChatScreenState extends State<ChatScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _textController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    setState(() {});
+  }
+
+  @override
   void dispose() {
+    _textController.removeListener(_onTextChanged);
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -70,21 +81,29 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _submitMessage() {
     final text = _textController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || widget.state.isGenerating) return;
+
     if (!widget.state.hasActiveModel || !widget.state.activeModel.isLoaded) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Для начала диалога необходимо скачать и загрузить модель во вкладке «Модели»'),
-          duration: Duration(seconds: 3),
-          backgroundColor: AppColors.surfaceContainerHighest,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      widget.state.setTab(1);
-      return;
+      final loaded = widget.state.loadBuiltinModel();
+      if (!loaded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Загрузите модель в память для начала генерации'),
+            action: SnackBarAction(
+              label: 'Модели',
+              onPressed: () => widget.state.setTab(1),
+            ),
+            duration: const Duration(seconds: 4),
+            backgroundColor: AppColors.surfaceContainerHighest,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
     }
-    widget.state.sendMessage(text);
+
     _textController.clear();
+    widget.state.sendMessage(text);
     _scrollToBottom();
   }
 
@@ -165,6 +184,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final selectedPrompt = sampleVoicePrompts[DateTime.now().second % sampleVoicePrompts.length];
     _textController.text = selectedPrompt;
     _textController.selection = TextSelection.fromPosition(TextPosition(offset: _textController.text.length));
+    setState(() {});
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -227,11 +247,15 @@ class _ChatScreenState extends State<ChatScreen> {
             InkWell(
               onTap: () {
                 if (widget.state.hasActiveModel && !widget.state.activeModel.isLoaded) {
-                  final file = File(widget.state.activeModel.filename);
-                  if (file.existsSync()) {
-                    widget.state.loadModel(widget.state.activeModel);
+                  if (widget.state.activeModel.filename.startsWith('builtin://')) {
+                    widget.state.loadBuiltinModel();
                   } else {
-                    widget.state.setTab(1);
+                    final file = File(widget.state.activeModel.filename);
+                    if (file.existsSync()) {
+                      widget.state.loadModel(widget.state.activeModel);
+                    } else {
+                      widget.state.setTab(1);
+                    }
                   }
                 } else {
                   widget.state.setTab(1);
@@ -409,6 +433,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           _textController.selection = TextSelection.fromPosition(
                             TextPosition(offset: _textController.text.length),
                           );
+                          setState(() {});
                         },
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
@@ -463,65 +488,94 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 // Attach button
-                IconButton(
-                  onPressed: _showAttachDialog,
-                  icon: const Icon(
-                    Icons.attach_file,
-                    size: 20,
-                    color: AppColors.onSurfaceVariant,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: IconButton(
+                    onPressed: _showAttachDialog,
+                    icon: const Icon(
+                      Icons.attach_file,
+                      size: 20,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                    tooltip: 'Прикрепить контекст',
                   ),
-                  tooltip: 'Прикрепить контекст',
                 ),
                 // Text Field
                 Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    onSubmitted: (_) => _submitMessage(),
-                    style: const TextStyle(
-                      fontFamily: AppTypography.sansFont,
-                      fontSize: 14,
-                      color: AppColors.onSurface,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'Спросите BitNet без доступа в сеть...',
-                      hintStyle: TextStyle(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: TextField(
+                      controller: _textController,
+                      minLines: 1,
+                      maxLines: 4,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _submitMessage(),
+                      style: const TextStyle(
                         fontFamily: AppTypography.sansFont,
                         fontSize: 14,
-                        color: AppColors.onSurfaceVariant,
+                        color: AppColors.onSurface,
                       ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      decoration: const InputDecoration(
+                        hintText: 'Спросите BitNet без доступа в сеть...',
+                        hintStyle: TextStyle(
+                          fontFamily: AppTypography.sansFont,
+                          fontSize: 14,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      ),
                     ),
                   ),
                 ),
                 // Voice input button
-                IconButton(
-                  onPressed: _handleVoiceInput,
-                  icon: const Icon(
-                    Icons.mic,
-                    size: 20,
-                    color: AppColors.onSurfaceVariant,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: IconButton(
+                    onPressed: _handleVoiceInput,
+                    icon: const Icon(
+                      Icons.mic,
+                      size: 20,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                    tooltip: 'Голосовой ввод',
                   ),
-                  tooltip: 'Голосовой ввод',
                 ),
                 // Send / Stop button
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: widget.state.isGenerating ? AppColors.error : AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: widget.state.isGenerating ? widget.state.stopGeneration : _submitMessage,
-                    icon: Icon(
-                      widget.state.isGenerating ? Icons.stop_rounded : Icons.arrow_upward,
-                      size: 20,
-                      color: AppColors.onPrimary,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: widget.state.isGenerating
+                          ? AppColors.error
+                          : (_textController.text.trim().isNotEmpty
+                              ? AppColors.primary
+                              : AppColors.surfaceContainerHighest),
+                      shape: BoxShape.circle,
                     ),
-                    tooltip: widget.state.isGenerating ? 'Остановить' : 'Отправить',
+                    child: IconButton(
+                      onPressed: widget.state.isGenerating
+                          ? widget.state.stopGeneration
+                          : (_textController.text.trim().isNotEmpty ? _submitMessage : null),
+                      icon: Icon(
+                        widget.state.isGenerating ? Icons.stop_rounded : Icons.arrow_upward,
+                        size: 20,
+                        color: widget.state.isGenerating
+                            ? AppColors.onError
+                            : (_textController.text.trim().isNotEmpty
+                                ? AppColors.onPrimary
+                                : AppColors.onSurfaceVariant.withOpacity(0.38)),
+                      ),
+                      tooltip: widget.state.isGenerating ? 'Остановить' : 'Отправить',
+                    ),
                   ),
                 ),
               ],

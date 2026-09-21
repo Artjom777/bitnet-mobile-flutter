@@ -26,6 +26,17 @@ class _ModelsScreenState extends State<ModelsScreen> {
   }
 
   void _confirmDeleteModel(ModelItem model) {
+    if (model.filename.startsWith('builtin://')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Встроенное ядро BitNet невозможно удалить из системы'),
+          backgroundColor: AppColors.surfaceContainerHighest,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -71,16 +82,18 @@ class _ModelsScreenState extends State<ModelsScreen> {
       );
       return;
     }
-    final file = File(model.filename);
-    if (!file.existsSync()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Файл «${model.filename}» не существует на диске! Сначала скачайте модель.'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
+    if (!model.filename.startsWith('builtin://')) {
+      final file = File(model.filename);
+      if (!file.existsSync()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Файл «${model.filename}» не существует на диске! Сначала скачайте модель.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
     }
     final ok = widget.state.loadModel(model);
     if (ok) {

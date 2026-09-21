@@ -3,9 +3,11 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
+#include <thread>
 
 static std::unique_ptr<BitNetEngine> g_engine = nullptr;
 static std::mutex g_engine_mutex;
+static std::thread s_worker_thread;
 
 static std::atomic<float> s_tok_per_sec{31.8f};
 static std::atomic<int> s_ttft_ms{45};
@@ -56,7 +58,11 @@ FFI_EXPORT int bitnet_load_model(const char* model_path) {
     if (!g_engine) {
         g_engine = std::make_unique<BitNetEngine>();
     }
-    if (!model_path) return 0;
+    if (!model_path || strlen(model_path) == 0 || strncmp(model_path, "builtin://", 10) == 0) {
+        bool ok = g_engine->init(4, 2048);
+        update_cached_telemetry(g_engine->get_telemetry());
+        return ok ? 1 : 0;
+    }
     bool ok = g_engine->load_model(model_path);
     update_cached_telemetry(g_engine->get_telemetry());
     return ok ? 1 : 0;
@@ -75,6 +81,13 @@ FFI_EXPORT int bitnet_unload_model() {
 FFI_EXPORT int bitnet_is_model_loaded() {
     std::lock_guard<std::mutex> lock(g_engine_mutex);
     return (g_engine && g_engine->is_loaded()) ? 1 : 0;
+}
+
+FFI_EXPORT void bitnet_stop_generation() {
+    std::lock_guard<std::mutex> lock(g_engine_mutex);
+    if (g_engine) {
+        g_engine->stop_generation();
+    }
 }
 
 typedef void (*BitNetTokenCallback)(const char* token, int is_done);
@@ -110,6 +123,51 @@ FFI_EXPORT int bitnet_generate_stream(
     return tokens;
 }
 
+FFI_EXPORT int bitnet_generate_stream_async(
+    const char* prompt,
+    int max_tokens,
+    float temperature,
+    float top_p,
+    float rep_penalty,
+    BitNetTokenCallback callback
+) {
+    if (!prompt || !callback) {
+        return -1;
+    }
+
+    std::string prompt_str(prompt);
+
+    if (s_worker_thread.joinable()) {
+        s_worker_thread.join();
+    }
+
+    s_worker_thread = std::thread([prompt_str, max_tokens, temperature, top_p, rep_penalty, callback]() {
+        std::lock_guard<std::mutex> lock(g_engine_mutex);
+        if (!g_engine) {
+            callback("", 1);
+            return;
+        }
+
+        g_engine->generate_stream(
+            prompt_str,
+            max_tokens,
+            temperature,
+            top_p,
+            rep_penalty,
+            [callback](const std::string& token, bool is_done) {
+                static thread_local char s_token_buf[2048];
+                strncpy(s_token_buf, token.c_str(), sizeof(s_token_buf) - 1);
+                s_token_buf[sizeof(s_token_buf) - 1] = '\0';
+                callback(s_token_buf, is_done ? 1 : 0);
+            }
+        );
+
+        update_cached_telemetry(g_engine->get_telemetry());
+    });
+
+    return 1;
+}
+
 FFI_EXPORT void bitnet_get_telemetry(
     float* out_tok_s,
     int* out_ttft_ms,
@@ -129,6 +187,12 @@ FFI_EXPORT void bitnet_get_telemetry(
 }
 
 FFI_EXPORT void bitnet_free() {
+    if (g_engine) {
+        g_engine->stop_generation();
+    }
+    if (s_worker_thread.joinable()) {
+        s_worker_thread.join();
+    }
     std::lock_guard<std::mutex> lock(g_engine_mutex);
     g_engine.reset();
 }

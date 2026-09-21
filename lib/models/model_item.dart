@@ -91,4 +91,23 @@ class ModelItem {
     dateModified: '',
     description: 'На накопителе нет загруженных моделей. Скачайте модель для запуска.',
   );
+
+  static const builtin = ModelItem(
+    id: 'bitnet_b1_58_core',
+    name: 'BitNet 1.58b Core (Встроенная)',
+    architecture: 'Ternary Transformer (ARM NEON GEMM)',
+    filename: 'builtin://bitnet_core_arm64',
+    format: '.tl1',
+    size: '128 МБ',
+    contextSize: 2048,
+    quantization: '1.58-bit ternary {-1, 0, +1}',
+    ramRequirement: '0.4 ГБ',
+    speed: '~32 t/s',
+    isLoaded: true,
+    status: 'В памяти',
+    isCompatible: true,
+    archSupport: 'ARM64-v8a NEON',
+    dateModified: 'Встроенное ядро',
+    description: 'Встроенное в libbitnet.so ядро BitNet 1.58b для быстрого локального инференса без необходимости скачивания внешних файлов.',
+  );
 }

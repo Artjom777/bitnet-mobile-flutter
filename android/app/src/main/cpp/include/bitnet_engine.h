@@ -84,12 +84,15 @@ public:
         std::function<void(const std::string& token, bool is_done)> callback
     );
 
+    void stop_generation() { stop_requested_.store(true); }
+
     BitNetTelemetry get_telemetry() const;
     const BitNetConfig& get_config() const { return config_; }
 
 private:
     BitNetConfig config_;
     bool model_loaded_ = false;
+    std::atomic<bool> stop_requested_{false};
     mutable BitNetTelemetry telemetry_;
 
     struct Layer {

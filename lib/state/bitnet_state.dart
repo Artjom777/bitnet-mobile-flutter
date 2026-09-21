@@ -73,10 +73,33 @@ class BitNetState extends ChangeNotifier {
   }
 
   void _initModels() {
-    _activeModel = ModelItem.empty;
-    _models = [];
+    _activeModel = ModelItem.builtin;
+    _models = [ModelItem.builtin];
     _pickerFiles = [];
     scanLocalModelFiles();
+  }
+
+  bool loadBuiltinModel() {
+    _activeModel = ModelItem.builtin.copyWith(isLoaded: true, status: 'В памяти');
+    if (!_models.any((m) => m.id == ModelItem.builtin.id)) {
+      _models.insert(0, _activeModel);
+    } else {
+      _models = _models.map((m) {
+        if (m.id == ModelItem.builtin.id) {
+          return _activeModel;
+        } else {
+          return m.copyWith(isLoaded: false, status: 'На накопителе');
+        }
+      }).toList();
+    }
+    BitNetFFI.instance.loadModel('builtin://bitnet_core_arm64');
+    _terminalLogs.add({
+      'tag': 'model_loaded',
+      'color': 'primary',
+      'text': 'bitnet.cpp: активировано встроенное ядро BitNet 1.58b',
+    });
+    notifyListeners();
+    return true;
   }
 
   void _initMessages() {
@@ -134,6 +157,10 @@ class BitNetState extends ChangeNotifier {
       return false;
     }
 
+    if (model.filename.startsWith('builtin://')) {
+      return loadBuiltinModel();
+    }
+
     if (model.filename.isEmpty) {
       _terminalLogs.add({
         'tag': 'model_err',
@@ -177,7 +204,7 @@ class BitNetState extends ChangeNotifier {
       if (m.id == model.id) {
         return m.copyWith(isLoaded: true, status: 'В памяти');
       } else {
-        return m.copyWith(isLoaded: false, status: 'На диске');
+        return m.copyWith(isLoaded: false, status: m.filename.startsWith('builtin://') ? 'В резерве' : 'На накопителе');
       }
     }).toList();
 
@@ -233,6 +260,9 @@ class BitNetState extends ChangeNotifier {
   bool importCustomModel(ModelItem file) => importModel(file);
 
   void deleteModel(ModelItem model) {
+    if (model.filename.startsWith('builtin://')) {
+      return;
+    }
     if (model.isLoaded) {
       unloadModel(model);
     }
@@ -314,9 +344,12 @@ class BitNetState extends ChangeNotifier {
         _models.add(f);
       }
     }
-    _models.removeWhere((m) => m.filename.isNotEmpty && !File(m.filename).existsSync());
-    if (_activeModel.filename.isNotEmpty && !File(_activeModel.filename).existsSync()) {
-      _activeModel = ModelItem.empty;
+    _models.removeWhere((m) => !m.filename.startsWith('builtin://') && m.filename.isNotEmpty && !File(m.filename).existsSync());
+    if (!_activeModel.filename.startsWith('builtin://') && _activeModel.filename.isNotEmpty && !File(_activeModel.filename).existsSync()) {
+      _activeModel = ModelItem.builtin;
+    }
+    if (!_models.any((m) => m.id == ModelItem.builtin.id)) {
+      _models.insert(0, ModelItem.builtin);
     }
 
     notifyListeners();

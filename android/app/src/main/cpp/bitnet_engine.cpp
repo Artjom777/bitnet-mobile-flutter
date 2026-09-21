@@ -738,6 +738,7 @@ int BitNetEngine::generate_stream(
         return -1;
     }
 
+    stop_requested_.store(false);
     auto start_time = std::chrono::high_resolution_clock::now();
 
     std::vector<int> prompt_tokens;
@@ -749,6 +750,10 @@ int BitNetEngine::generate_stream(
     // Evaluate prompt tokens through BitNet Transformer (Prefill)
     int pos = 0;
     for (int tok : prompt_tokens) {
+        if (stop_requested_.load()) {
+            callback("", true);
+            return 0;
+        }
         forward_token(tok, pos++, logits.data());
     }
 
@@ -761,6 +766,9 @@ int BitNetEngine::generate_stream(
     // Autoregressive generation
     int generated_count = 0;
     while (generated_count < max_tokens) {
+        if (stop_requested_.load()) {
+            break;
+        }
         int next_tok = sample_next_token(logits.data(), temperature, top_p, history, rep_penalty);
         history.push_back(next_tok);
         generated_count++;
