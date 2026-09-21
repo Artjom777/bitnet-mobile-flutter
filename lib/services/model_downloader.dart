@@ -24,6 +24,8 @@ class ModelDownloader {
   ModelDownloader._();
 
   static const Map<String, String> officialModels = {
+    'SmolLM2-135M-Instruct (Официальный чат-квант Q8_0, 144 МБ)':
+        'https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf',
     'BitNet-b1.58-2B-4T (Microsoft Research i2_s, 1.15 ГБ)':
         'https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf',
     'BitNet-b1.58-Large (BoscoTheDog Q8_0, 740 МБ)':

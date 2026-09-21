@@ -35,10 +35,10 @@ jobs:
       - name: Check Flutter Version
         run: flutter --version
 
-      - name: Download BitNet 70M Model for Bundling
+      - name: Download SmolLM2 135M Instruct Model for Bundling
         run: |
           mkdir -p assets/models
-          curl -L "https://huggingface.co/gate369/Bitnet-M7-70m-Q8_0-GGUF/resolve/main/bitnet-m7-70m.Q8_0.gguf" -o assets/models/bitnet-m7-70m.Q8_0.gguf
+          curl -L "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf" -o assets/models/smollm2-135m-instruct.Q8_0.gguf
           ls -lh assets/models/
 
       - name: Get Dependencies

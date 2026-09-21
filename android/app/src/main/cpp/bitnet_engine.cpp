@@ -1173,13 +1173,11 @@ int BitNetEngine::sample_next_token(
             int tok = kv.first;
             int count = kv.second;
             if (tok >= 0 && tok < vocab_size) {
-                // Do not penalize single-byte fallback tokens (<0xXX>) or common whitespace.
-                // In multi-byte UTF-8 languages (like Russian Cyrillic), 0xD0 and 0xD1 prefixes
-                // repeat constantly; penalizing them suppresses Cyrillic generation.
+                // Do not penalize byte-level prefix tokens or spaces
                 bool is_exempt = false;
                 if (tok < static_cast<int>(vocab_.size())) {
                     const std::string& v = vocab_[tok];
-                    if (v == "\n" || v == " " || v == "\xe2\x96\x81" || v == "\xc4\xa0" ||
+                    if (v == " " || v == "\xe2\x96\x81" || v == "\xc4\xa0" ||
                         (v.size() == 6 && v.rfind("<0x", 0) == 0 && v.back() == '>')) {
                         is_exempt = true;
                     }
@@ -1277,16 +1275,11 @@ int BitNetEngine::generate_stream(
 
     // 1. Format and tokenize prompt using model-appropriate template
     std::string formatted_prompt = prompt;
-    if (formatted_prompt.find("Human:") == std::string::npos && formatted_prompt.find("BITNETAssistant:") == std::string::npos) {
-        bool has_cyrillic = false;
-        for (unsigned char c : prompt) {
-            if (c == 0xD0 || c == 0xD1) {
-                has_cyrillic = true;
-                break;
-            }
-        }
-        if (has_cyrillic) {
-            formatted_prompt = "Human: [System: You are an intelligent multilingual AI assistant. Always reply directly in fluent Russian language (на русском языке).]\nПривет!\n\nBITNETAssistant: Здравствуйте! Чем я могу вам помочь?\n\nHuman: " + prompt + "\n\nBITNETAssistant: ";
+    if (formatted_prompt.find("<|im_start|>") == std::string::npos &&
+        formatted_prompt.find("Human:") == std::string::npos &&
+        formatted_prompt.find("BITNETAssistant:") == std::string::npos) {
+        if (token_to_id_.find("<|im_start|>") != token_to_id_.end()) {
+            formatted_prompt = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n" + prompt + "<|im_end|>\n<|im_start|>assistant\n";
         } else {
             formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
         }
@@ -1327,6 +1320,7 @@ int BitNetEngine::generate_stream(
     int generated_count = 0;
 
     std::string utf8_pending;
+    std::string recent_window;
     for (int step = 0; step < max_tokens; ++step) {
         if (stop_requested_.load()) {
             break;
@@ -1334,14 +1328,33 @@ int BitNetEngine::generate_stream(
 
         int next_token = sample_next_token(logits.data(), temperature, top_p, history, rep_penalty);
 
+        // Immediate loop suppression: stop if identical token repeats 3 times
+        if (history.size() >= 3 &&
+            history.back() == next_token &&
+            history[history.size() - 2] == next_token) {
+            break;
+        }
+
         // Check EOS condition
         if (next_token == eos_token_id_ || next_token == 2 || next_token == 128001 || next_token == 128009) {
             break;
         }
 
         std::string tok_str = token_to_str(next_token);
-        if (tok_str == "</s>" || tok_str == "<|im_end|>" || tok_str == "<|endoftext|>" || tok_str == "<|end_of_text|>" ||
-            tok_str.find("Human:") != std::string::npos || tok_str.find("<|eot_id|>") != std::string::npos) {
+        recent_window += tok_str;
+        if (recent_window.size() > 64) {
+            recent_window = recent_window.substr(recent_window.size() - 64);
+        }
+
+        // Check sliding window stop sequences
+        if (recent_window.find("Human:") != std::string::npos ||
+            recent_window.find("User:") != std::string::npos ||
+            recent_window.find("<|im_end|>") != std::string::npos ||
+            recent_window.find("<|im_start|>") != std::string::npos ||
+            recent_window.find("<|endoftext|>") != std::string::npos ||
+            recent_window.find("<|end_of_text|>") != std::string::npos ||
+            recent_window.find("<|eot_id|>") != std::string::npos ||
+            recent_window.find("\n\n\n") != std::string::npos) {
             break;
         }
 

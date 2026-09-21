@@ -85,18 +85,25 @@ class BitNetState extends ChangeNotifier {
   Future<void> _ensureDefaultModelAndScan() async {
     try {
       final storageDir = await ModelDownloader.resolveModelStorageDir();
-      final targetPath = '${storageDir.path}/bitnet-m7-70m.Q8_0.gguf';
-      final targetFile = File(targetPath);
+      final defaultModels = [
+        'smollm2-135m-instruct.Q8_0.gguf',
+        'bitnet-m7-70m.Q8_0.gguf',
+      ];
 
-      if (!targetFile.existsSync()) {
-        try {
-          final byteData = await rootBundle.load('assets/models/bitnet-m7-70m.Q8_0.gguf');
-          final buffer = byteData.buffer;
-          await targetFile.writeAsBytes(
-            buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
-            flush: true,
-          );
-        } catch (_) {}
+      for (final modelName in defaultModels) {
+        final targetPath = '${storageDir.path}/$modelName';
+        final targetFile = File(targetPath);
+
+        if (!targetFile.existsSync()) {
+          try {
+            final byteData = await rootBundle.load('assets/models/$modelName');
+            final buffer = byteData.buffer;
+            await targetFile.writeAsBytes(
+              buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+              flush: true,
+            );
+          } catch (_) {}
+        }
       }
     } catch (_) {}
 
