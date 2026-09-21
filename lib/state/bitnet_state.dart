@@ -430,9 +430,17 @@ class BitNetState extends ChangeNotifier {
     final isModelEnglishCentric = !_activeModel.description.toLowerCase().contains('русск');
     final useRussianSkill = _settings.russianSkillEnabled;
 
+    String modelPrompt = prompt;
+    if (useRussianSkill && isRussianInput && isModelEnglishCentric) {
+      final translatedQuery = await RussianSkillService.instance.translateToEnglish(prompt);
+      if (translatedQuery != null && translatedQuery.trim().isNotEmpty) {
+        modelPrompt = translatedQuery;
+      }
+    }
+
     final effectivePrompt = useRussianSkill
         ? RussianSkillService.instance.formatRussianSkillPrompt(
-            userPrompt: prompt,
+            userPrompt: modelPrompt,
             systemPrompt: _settings.systemPrompt,
             isEnglishOnlyModel: isModelEnglishCentric,
           )
@@ -456,6 +464,8 @@ class BitNetState extends ChangeNotifier {
     final stopwatch = Stopwatch()..start();
     final rawBuffer = StringBuffer();
     int tokenCount = 0;
+    String streamedRussianText = '';
+    String pendingSentence = '';
 
     try {
       final tokenStream = BitNetFFI.instance.generateStream(
@@ -476,10 +486,40 @@ class BitNetState extends ChangeNotifier {
 
         final idx = _messages.indexWhere((m) => m.id == asstId);
         if (idx != -1) {
-          _messages[idx] = _messages[idx].copyWith(
-            text: rawText,
-            tokensCount: tokenCount,
-          );
+          if (useRussianSkill && isRussianInput && isModelEnglishCentric) {
+            pendingSentence += token;
+            if (pendingSentence.contains(RegExp(r'[.!?\n]\s*')) && pendingSentence.length > 20) {
+              final toTrans = pendingSentence;
+              pendingSentence = '';
+              RussianSkillService.instance.translateToRussian(toTrans).then((transChunk) {
+                if (transChunk != null && transChunk.isNotEmpty) {
+                  streamedRussianText += '$transChunk ';
+                  final cur = _messages.indexWhere((m) => m.id == asstId);
+                  if (cur != -1 && _isGenerating) {
+                    _messages[cur] = _messages[cur].copyWith(
+                      text: '$streamedRussianText ▍',
+                      tokensCount: tokenCount,
+                    );
+                    notifyListeners();
+                  }
+                }
+              });
+            }
+
+            final displayText = streamedRussianText.isNotEmpty
+                ? '$streamedRussianText ▍'
+                : '🧠 Генерация ответа: $tokenCount токенов...';
+
+            _messages[idx] = _messages[idx].copyWith(
+              text: displayText,
+              tokensCount: tokenCount,
+            );
+          } else {
+            _messages[idx] = _messages[idx].copyWith(
+              text: rawText,
+              tokensCount: tokenCount,
+            );
+          }
           notifyListeners();
         }
       }
@@ -493,11 +533,25 @@ class BitNetState extends ChangeNotifier {
       _liveTokSpeed = double.parse(realSpeed.toStringAsFixed(1));
 
       final rawText = rawBuffer.toString();
+      String finalText = rawText;
+      bool isTranslated = false;
+
+      if (useRussianSkill &&
+          (isRussianInput || _settings.autoTranslateToRussian) &&
+          RussianSkillService.instance.isPrimarilyEnglish(rawText)) {
+        final translated = await RussianSkillService.instance.translateToRussian(rawText);
+        if (translated != null && translated.trim().isNotEmpty) {
+          finalText = translated;
+          isTranslated = true;
+        }
+      }
 
       final idx = _messages.indexWhere((m) => m.id == asstId);
       if (idx != -1) {
         _messages[idx] = _messages[idx].copyWith(
-          text: rawText,
+          text: finalText,
+          originalText: isTranslated ? rawText : null,
+          isTranslated: isTranslated,
           isStreaming: false,
           tokensCount: tokenCount,
           tokensPerSec: _liveTokSpeed,
@@ -510,13 +564,6 @@ class BitNetState extends ChangeNotifier {
         'text': 'sampled $tokenCount tokens @ ${_liveTokSpeed} t/s via ARM NEON',
       });
       notifyListeners();
-
-      // If Russian skill and auto-translation is enabled and output is English, translate asynchronously
-      if (useRussianSkill &&
-          _settings.autoTranslateToRussian &&
-          RussianSkillService.instance.isPrimarilyEnglish(rawText)) {
-        translateMessage(asstId);
-      }
     }
   }
 
