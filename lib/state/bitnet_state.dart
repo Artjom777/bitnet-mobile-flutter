@@ -86,8 +86,8 @@ class BitNetState extends ChangeNotifier {
     try {
       final storageDir = await ModelDownloader.resolveModelStorageDir();
       final defaultModels = [
-        'smollm2-135m-instruct.Q8_0.gguf',
         'bitnet-m7-70m.Q8_0.gguf',
+        'smollm2-135m-instruct.Q8_0.gguf',
       ];
 
       for (final modelName in defaultModels) {
