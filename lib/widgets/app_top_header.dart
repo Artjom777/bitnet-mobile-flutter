@@ -136,15 +136,21 @@ class AppTopHeader extends StatelessWidget {
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: state.activeModel.isLoaded ? AppColors.secondary : AppColors.error,
+                                  color: (state.hasActiveModel && state.activeModel.isLoaded)
+                                      ? AppColors.secondary
+                                      : AppColors.error,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                state.activeModel.name.contains('3B')
-                                    ? 'b1.58-3B'
-                                    : state.activeModel.name.split('-').first,
+                                !state.hasActiveModel
+                                    ? 'Нет модели'
+                                    : (state.activeModel.isLoaded
+                                        ? (state.activeModel.name.contains('3B')
+                                            ? 'b1.58-3B'
+                                            : state.activeModel.name.split('-').first)
+                                        : 'Не в ОЗУ'),
                                 style: const TextStyle(
                                   fontFamily: AppTypography.monoFont,
                                   fontSize: 11,

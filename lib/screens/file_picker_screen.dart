@@ -41,18 +41,49 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedModel = widget.state.pickerFiles.first;
+    _selectedModel = widget.state.pickerFiles.isNotEmpty
+        ? widget.state.pickerFiles.first
+        : ModelItem.empty;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.state.scanLocalModelFiles();
+      widget.state.scanLocalModelFiles().then((_) {
+        if (mounted && _selectedModel.id == 'none' && widget.state.pickerFiles.isNotEmpty) {
+          setState(() {
+            _selectedModel = widget.state.pickerFiles.first;
+          });
+        }
+      });
     });
   }
 
   void _handleValidateAndImport() async {
+    if (_selectedModel.id == 'none' || _selectedModel.filename.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Выберите файл модели для импорта'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final file = File(_selectedModel.filename);
+    if (!file.existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Файл «${_selectedModel.filename}» не существует на диске!'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isValidating = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 900));
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted) return;
     setState(() {
@@ -60,19 +91,26 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
       _isValidated = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-
-    widget.state.importModel(_selectedModel);
+    final ok = widget.state.importModel(_selectedModel);
     Navigator.of(context).pop();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Модель ${_selectedModel.name} успешно импортирована в движок!'),
-        backgroundColor: AppColors.secondaryContainer,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Модель ${_selectedModel.name} проверена и загружена в память!'),
+          backgroundColor: AppColors.secondary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка импорта модели ${_selectedModel.name}'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override

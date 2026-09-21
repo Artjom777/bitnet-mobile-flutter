@@ -60,6 +60,48 @@ class _ModelsScreenState extends State<ModelsScreen> {
     );
   }
 
+  void _handleLoadModel(ModelItem model) {
+    if (!model.isCompatible) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Формат ${model.format} не поддерживается архитектурой ARM64'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final file = File(model.filename);
+    if (!file.existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Файл «${model.filename}» не существует на диске! Сначала скачайте модель.'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final ok = widget.state.loadModel(model);
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Модель ${model.name} успешно загружена в ОЗУ'),
+          backgroundColor: AppColors.secondary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Не удалось загрузить ${model.name} в bitnet.cpp'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   void _showUrlDownloadDialog() {
     String selectedUrl = ModelDownloader.officialModels.values.first;
     final controller = TextEditingController(text: selectedUrl);
@@ -246,8 +288,8 @@ class _ModelsScreenState extends State<ModelsScreen> {
                             quantization: '1.58-bit Ternary',
                             ramRequirement: '1.2 ГБ',
                             speed: '~32 t/s',
-                            isLoaded: true,
-                            status: 'В памяти',
+                            isLoaded: false,
+                            status: 'На накопителе',
                             isCompatible: true,
                             archSupport: 'ARM NEON GEMM ADD',
                             dateModified: 'Только что',
@@ -259,8 +301,8 @@ class _ModelsScreenState extends State<ModelsScreen> {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Модель $filename успешно загружена и активна в bitnet.cpp!'),
-                                backgroundColor: AppColors.primaryContainer,
+                                content: Text('Модель $filename успешно сохранена на накопителе!'),
+                                backgroundColor: AppColors.secondary,
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -602,9 +644,11 @@ class _ModelsScreenState extends State<ModelsScreen> {
                     color: AppColors.onSurfaceVariant,
                   ),
                 ),
-                const Text(
-                  'Хранилище: 4.8 ГБ',
-                  style: TextStyle(
+                Text(
+                  widget.state.models.isEmpty
+                      ? 'Хранилище: 0 МБ'
+                      : 'Моделей: ${widget.state.models.length}',
+                  style: const TextStyle(
                     fontFamily: AppTypography.monoFont,
                     fontSize: 11,
                     color: AppColors.outline,
@@ -614,8 +658,56 @@ class _ModelsScreenState extends State<ModelsScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Model Cards
-            ...widget.state.models.map((model) => _buildModelCard(model)),
+            // Model Cards or Empty Message
+            if (widget.state.models.isEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 20),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.layers_clear, size: 48, color: AppColors.onSurfaceVariant),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Модели не установлены',
+                      style: TextStyle(
+                        fontFamily: AppTypography.sansFont,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'На накопителе нет загруженных моделей BitNet.\nНажмите «Hugging Face / Загрузить по URL» выше или выберите файл .tl1 / .gguf из проводника.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTypography.sansFont,
+                        fontSize: 12,
+                        color: AppColors.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _showUrlDownloadDialog,
+                      icon: const Icon(Icons.cloud_download, size: 16),
+                      label: const Text('Скачать модель (Hugging Face)'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.onPrimary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...widget.state.models.map((model) => _buildModelCard(model)),
           ],
         ),
 
@@ -962,7 +1054,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                   ],
                 ),
                 ElevatedButton.icon(
-                  onPressed: model.isCompatible ? () => widget.state.loadModel(model) : null,
+                  onPressed: model.isCompatible ? () => _handleLoadModel(model) : null,
                   icon: Icon(
                     model.isCompatible ? Icons.play_arrow : Icons.block,
                     size: 16,

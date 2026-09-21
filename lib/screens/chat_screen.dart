@@ -70,8 +70,17 @@ class _ChatScreenState extends State<ChatScreen> {
   void _submitMessage() {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
-    if (!widget.state.activeModel.isLoaded) {
-      widget.state.loadModel(widget.state.activeModel);
+    if (!widget.state.hasActiveModel || !widget.state.activeModel.isLoaded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Для начала диалога необходимо скачать и загрузить модель во вкладке «Модели»'),
+          duration: Duration(seconds: 3),
+          backgroundColor: AppColors.surfaceContainerHighest,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      widget.state.setTab(1);
+      return;
     }
     widget.state.sendMessage(text);
     _textController.clear();
@@ -216,8 +225,13 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(height: 8),
             InkWell(
               onTap: () {
-                if (!widget.state.activeModel.isLoaded) {
-                  widget.state.loadModel(widget.state.activeModel);
+                if (widget.state.hasActiveModel && !widget.state.activeModel.isLoaded) {
+                  final file = File(widget.state.activeModel.filename);
+                  if (file.existsSync()) {
+                    widget.state.loadModel(widget.state.activeModel);
+                  } else {
+                    widget.state.setTab(1);
+                  }
                 } else {
                   widget.state.setTab(1);
                 }
@@ -229,7 +243,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   color: AppColors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: widget.state.activeModel.isLoaded
+                    color: (widget.state.hasActiveModel && widget.state.activeModel.isLoaded)
                         ? AppColors.secondary.withOpacity(0.35)
                         : AppColors.error.withOpacity(0.35),
                   ),
@@ -241,7 +255,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: widget.state.activeModel.isLoaded
+                        color: (widget.state.hasActiveModel && widget.state.activeModel.isLoaded)
                             ? AppColors.secondary
                             : AppColors.error,
                         shape: BoxShape.circle,
@@ -249,9 +263,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      widget.state.activeModel.isLoaded
-                          ? '${widget.state.activeModel.name} • В памяти'
-                          : '${widget.state.activeModel.name} • Нажмите для загрузки',
+                      !widget.state.hasActiveModel
+                          ? 'Модель не выбрана • Нажмите для выбора'
+                          : (widget.state.activeModel.isLoaded
+                              ? '${widget.state.activeModel.name} • В памяти'
+                              : '${widget.state.activeModel.name} • Не загружена в ОЗУ'),
                       style: const TextStyle(
                         fontFamily: AppTypography.monoFont,
                         fontSize: 11,

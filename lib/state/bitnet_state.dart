@@ -19,8 +19,9 @@ class BitNetState extends ChangeNotifier {
   }
 
   // Active Model
-  late ModelItem _activeModel;
+  ModelItem _activeModel = ModelItem.empty;
   ModelItem get activeModel => _activeModel;
+  bool get hasActiveModel => _activeModel.id != 'none' && _activeModel.filename.isNotEmpty;
 
   // Models List
   List<ModelItem> _models = [];
@@ -41,20 +42,20 @@ class BitNetState extends ChangeNotifier {
   InferenceSettings get settings => _settings;
 
   // Live Telemetry
-  double _liveTokSpeed = 32.4;
+  double _liveTokSpeed = 0.0;
   double get liveTokSpeed => _liveTokSpeed;
 
-  int _ttftMs = 85;
+  int _ttftMs = 0;
   int get ttftMs => _ttftMs;
 
-  double _ramUsedGb = 1.4;
+  double _ramUsedGb = 0.3;
   double get ramUsedGb => _ramUsedGb;
   double _ramTotalGb = 8.0;
   double get ramTotalGb => _ramTotalGb;
 
   List<double> _waveformHeights = [
-    0.40, 0.65, 0.55, 0.80, 0.92, 0.75, 0.85,
-    0.95, 0.88, 0.98, 0.70, 0.82, 0.60, 0.89,
+    0.10, 0.15, 0.12, 0.20, 0.15, 0.18, 0.14,
+    0.22, 0.16, 0.19, 0.12, 0.15, 0.10, 0.14,
   ];
   List<double> get waveformHeights => _waveformHeights;
 
@@ -72,107 +73,10 @@ class BitNetState extends ChangeNotifier {
   }
 
   void _initModels() {
-    final active = const ModelItem(
-      id: 'bitnet_b1_58_3b',
-      name: 'BitNet-b1.58-3B-Q1_58',
-      architecture: 'Ternary Transformer (bitnet.cpp)',
-      filename: 'bitnet_b1_58-3B-Q1_58.tl1',
-      format: '.tl1',
-      size: '1.25 ГБ',
-      contextSize: 4096,
-      quantization: '1.58-bit ternary',
-      ramRequirement: '1.4 ГБ',
-      speed: '~32 t/s',
-      isLoaded: true,
-      status: 'В памяти',
-      isCompatible: true,
-      archSupport: 'ARM NEON I8MM',
-      dateModified: '24 мая 2024, 14:15',
-      description: 'Троичные веса {-1, 0, +1}. Рекомендуется для bitnet.cpp',
-    );
-
-    final llama = const ModelItem(
-      id: 'llama3_8b_bitnet',
-      name: 'Llama3-8B-BitNet-1.58b',
-      architecture: 'Microsoft BitNet',
-      filename: 'Llama3-8B-1.58bit-i1_s.gguf',
-      format: '.gguf',
-      size: '2.8 ГБ',
-      contextSize: 8192,
-      quantization: '1.58-bit',
-      ramRequirement: '3.1 ГБ',
-      speed: '~22 t/s',
-      isLoaded: false,
-      status: 'Готова',
-      isCompatible: true,
-      archSupport: 'ARM NEON / Accelerate',
-      dateModified: 'Вчера, 19:40',
-      description: 'GGUF i1_matrix • Microsoft BitNet',
-    );
-
-    final phi3 = const ModelItem(
-      id: 'phi3_mini_bitnet',
-      name: 'Phi-3-mini-BitNet-Ternary',
-      architecture: 'Экспериментальный срез 3.8B',
-      filename: 'phi-3-mini-bitnet-4k.tl1',
-      format: '.tl1',
-      size: '980 МБ',
-      contextSize: 2048,
-      quantization: '1.58-bit',
-      ramRequirement: '1.1 ГБ',
-      speed: '~46 t/s',
-      isLoaded: false,
-      status: 'На диске',
-      isCompatible: true,
-      archSupport: 'ARM NEON I8MM',
-      dateModified: '18 мая 2024',
-      description: '3.8B параметры • Сверхбыстрый запуск',
-    );
-
-    _activeModel = active;
-    _models = [active, llama, phi3];
-
-    _pickerFiles = [
-      active,
-      llama,
-      phi3,
-      const ModelItem(
-        id: 'deepseek_coder_158',
-        name: 'DeepSeek-Coder-1.58b-q1.gguf',
-        architecture: 'DeepSeek Coder Ternary',
-        filename: 'DeepSeek-Coder-1.58b-q1.gguf',
-        format: '.gguf',
-        size: '1.45 ГБ',
-        contextSize: 4096,
-        quantization: 'Q1_58',
-        ramRequirement: '1.6 ГБ',
-        speed: '~35 t/s',
-        isLoaded: false,
-        status: 'Готов к импорту',
-        isCompatible: true,
-        archSupport: 'ARM NEON I8MM',
-        dateModified: '12 мая 2024',
-        description: 'Кодовая модель 1.58b',
-      ),
-      const ModelItem(
-        id: 'llama_3_70b_fp16',
-        name: 'llama-3-70b-fp16.bin',
-        architecture: 'Llama 3 Full Precision',
-        filename: 'llama-3-70b-fp16.bin',
-        format: '.bin',
-        size: '140 ГБ',
-        contextSize: 8192,
-        quantization: 'FP16',
-        ramRequirement: '145 ГБ',
-        speed: '0 t/s',
-        isLoaded: false,
-        status: 'Неподдерживаемый',
-        isCompatible: false,
-        archSupport: 'None',
-        dateModified: '5 мая 2024',
-        description: 'Неподдерживаемый размер / Не 1.58-бит',
-      ),
-    ];
+    _activeModel = ModelItem.empty;
+    _models = [];
+    _pickerFiles = [];
+    scanLocalModelFiles();
   }
 
   void _initMessages() {
@@ -219,30 +123,79 @@ class BitNetState extends ChangeNotifier {
   }
 
   // Model Operations
-  void loadModel(ModelItem model) {
-    if (!model.isCompatible) return;
+  bool loadModel(ModelItem model) {
+    if (!model.isCompatible) {
+      _terminalLogs.add({
+        'tag': 'model_err',
+        'color': 'error',
+        'text': 'Формат ${model.format} не поддерживается архитектурой ARM64',
+      });
+      notifyListeners();
+      return false;
+    }
 
-    BitNetFFI.instance.loadModel(model.filename);
+    if (model.filename.isEmpty) {
+      _terminalLogs.add({
+        'tag': 'model_err',
+        'color': 'error',
+        'text': 'Имя файла модели не указано',
+      });
+      notifyListeners();
+      return false;
+    }
 
+    final file = File(model.filename);
+    if (!file.existsSync()) {
+      _terminalLogs.add({
+        'tag': 'model_err',
+        'color': 'error',
+        'text': 'Файл "${model.filename}" не найден на устройстве. Загрузите модель!',
+      });
+      _models = _models.map((m) {
+        if (m.id == model.id) {
+          return m.copyWith(isLoaded: false, status: 'Файл не найден');
+        }
+        return m;
+      }).toList();
+      notifyListeners();
+      return false;
+    }
+
+    final success = BitNetFFI.instance.loadModel(model.filename);
+    if (!success) {
+      _terminalLogs.add({
+        'tag': 'model_err',
+        'color': 'error',
+        'text': 'Ошибка инициализации весов ${model.filename} в bitnet.cpp',
+      });
+      notifyListeners();
+      return false;
+    }
+
+    _activeModel = model.copyWith(isLoaded: true, status: 'В памяти');
     _models = _models.map((m) {
       if (m.id == model.id) {
         return m.copyWith(isLoaded: true, status: 'В памяти');
       } else {
-        return m.copyWith(isLoaded: false, status: 'Готова');
+        return m.copyWith(isLoaded: false, status: 'На диске');
       }
     }).toList();
 
     _terminalLogs.add({
       'tag': 'model_loaded',
       'color': 'primary',
-      'text': 'bitnet.cpp native load: ${model.filename} [1.58b ternary ARM NEON]',
+      'text': 'bitnet.cpp: успешно загружена модель ${model.name} (${model.size})',
     });
 
     notifyListeners();
+    return true;
   }
 
   void unloadModel(ModelItem model) {
     BitNetFFI.instance.unloadModel();
+    if (_activeModel.id == model.id) {
+      _activeModel = _activeModel.copyWith(isLoaded: false, status: 'Выгружена');
+    }
     _models = _models.map((m) {
       if (m.id == model.id) {
         return m.copyWith(isLoaded: false, status: 'Выгружена');
@@ -252,20 +205,32 @@ class BitNetState extends ChangeNotifier {
     _terminalLogs.add({
       'tag': 'model_unloaded',
       'color': 'tertiary',
-      'text': 'unloaded ${model.filename} from memory',
+      'text': 'Выгружена модель ${model.name} из ОЗУ',
     });
     notifyListeners();
   }
 
-  void importModel(ModelItem file) {
-    if (!_models.any((m) => m.filename == file.filename)) {
-      _models.add(file.copyWith(isLoaded: false, status: 'Готова'));
+  bool importModel(ModelItem file) {
+    final f = File(file.filename);
+    if (!f.existsSync()) {
+      _terminalLogs.add({
+        'tag': 'import_err',
+        'color': 'error',
+        'text': 'Невозможно импортировать: файл ${file.filename} не найден на диске',
+      });
+      notifyListeners();
+      return false;
     }
-    loadModel(file);
+
+    if (!_models.any((m) => m.filename == file.filename)) {
+      _models.add(file.copyWith(isLoaded: false, status: 'На диске'));
+    }
+    final ok = loadModel(file);
     notifyListeners();
+    return ok;
   }
 
-  void importCustomModel(ModelItem file) => importModel(file);
+  bool importCustomModel(ModelItem file) => importModel(file);
 
   void deleteModel(ModelItem model) {
     if (model.isLoaded) {
@@ -294,12 +259,15 @@ class BitNetState extends ChangeNotifier {
 
   Future<void> scanLocalModelFiles() async {
     final searchDirs = [
+      Directory(_settings.modelsDirectory),
       Directory('/sdcard/Download/BitNet'),
       Directory('/sdcard/Download'),
       Directory('/sdcard/BitNet/models'),
       Directory('/data/data/com.bitnet.ai/files/models'),
       Directory('${Directory.systemTemp.path}/bitnet_models'),
     ];
+
+    final foundFiles = <ModelItem>[];
 
     for (final dir in searchDirs) {
       if (await dir.exists()) {
@@ -324,14 +292,14 @@ class BitNetState extends ChangeNotifier {
                   ramRequirement: '${((sizeBytes / (1024 * 1024 * 1024)) + 0.3).toStringAsFixed(1)} ГБ',
                   speed: '~32 t/s',
                   isLoaded: false,
-                  status: 'Готов к импорту',
+                  status: 'На накопителе',
                   isCompatible: !name.endsWith('.bin'),
                   archSupport: 'ARM NEON GEMM ADD',
                   dateModified: 'На накопителе',
-                  description: 'Обнаружен в ${dir.path}',
+                  description: 'Файл в ${dir.path}',
                 );
-                if (!_pickerFiles.any((f) => f.filename == path)) {
-                  _pickerFiles.add(item);
+                if (!foundFiles.any((f) => f.filename == path)) {
+                  foundFiles.add(item);
                 }
               }
             }
@@ -339,6 +307,18 @@ class BitNetState extends ChangeNotifier {
         } catch (_) {}
       }
     }
+
+    _pickerFiles = foundFiles;
+    for (final f in foundFiles) {
+      if (!_models.any((m) => m.filename == f.filename)) {
+        _models.add(f);
+      }
+    }
+    _models.removeWhere((m) => m.filename.isNotEmpty && !File(m.filename).existsSync());
+    if (_activeModel.filename.isNotEmpty && !File(_activeModel.filename).existsSync()) {
+      _activeModel = ModelItem.empty;
+    }
+
     notifyListeners();
   }
 

@@ -118,13 +118,16 @@ class BitNetFFI {
 
   bool loadModel(String filepath) {
     init();
+    if (filepath.isEmpty || !File(filepath).existsSync()) {
+      return false;
+    }
     if (_loadModelFn != null) {
       final pPath = filepath.toNativeUtf8();
       final res = _loadModelFn!(pPath);
       calloc.free(pPath);
       return res == 1;
     }
-    return true;
+    return false;
   }
 
   void unloadModel() {
@@ -137,7 +140,7 @@ class BitNetFFI {
     if (_isLoadedFn != null) {
       return _isLoadedFn!() == 1;
     }
-    return true;
+    return false;
   }
 
   BitNetRealTelemetry getTelemetry() {

@@ -37,20 +37,28 @@ class StatusBanner extends StatelessWidget {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.secondary,
+                      decoration: BoxDecoration(
+                        color: (state.hasActiveModel && state.activeModel.isLoaded)
+                            ? AppColors.secondary
+                            : AppColors.error,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        '${state.activeModel.name} (Int2/TL1)',
-                        style: const TextStyle(
+                        state.hasActiveModel
+                            ? (state.activeModel.isLoaded
+                                ? '${state.activeModel.name} (В памяти)'
+                                : '${state.activeModel.name} (Не загружена)')
+                            : 'Модель не загружена',
+                        style: TextStyle(
                           fontFamily: AppTypography.monoFont,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.secondary,
+                          color: (state.hasActiveModel && state.activeModel.isLoaded)
+                              ? AppColors.secondary
+                              : AppColors.onSurfaceVariant,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),

@@ -72,4 +72,23 @@ class ModelItem {
       description: description ?? this.description,
     );
   }
+
+  static const empty = ModelItem(
+    id: 'none',
+    name: 'Модель не выбрана',
+    architecture: 'BitNet C++',
+    filename: '',
+    format: '',
+    size: '0 МБ',
+    contextSize: 0,
+    quantization: '',
+    ramRequirement: '0 ГБ',
+    speed: '0 t/s',
+    isLoaded: false,
+    status: 'Не загружена',
+    isCompatible: false,
+    archSupport: 'ARM64-v8a',
+    dateModified: '',
+    description: 'На накопителе нет загруженных моделей. Скачайте модель для запуска.',
+  );
 }
