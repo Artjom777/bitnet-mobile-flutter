@@ -19,12 +19,16 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
   late ModelItem _selectedModel;
   bool _isValidating = false;
   bool _isValidated = false;
+  bool _isSearching = false;
+  String _searchQuery = '';
+  bool _isGridView = false;
+  String _sortMode = 'default';
 
   final List<Map<String, dynamic>> _storageProviders = [
-    {'name': 'Внутренний накопитель', 'icon': Icons.smartphone},
-    {'name': 'SD-карта', 'icon': Icons.sd_card},
-    {'name': 'Google Drive', 'icon': Icons.cloud},
-    {'name': 'Недавние', 'icon': Icons.schedule},
+    {'name': 'Внутренний накопитель', 'icon': Icons.smartphone, 'path': '/sdcard/Download/BitNet'},
+    {'name': 'SD-карта', 'icon': Icons.sd_card, 'path': '/sdcard/BitNet/models'},
+    {'name': 'Google Drive', 'icon': Icons.cloud, 'path': '/cloud/drive/BitNet'},
+    {'name': 'Недавние', 'icon': Icons.schedule, 'path': '/data/data/com.bitnet.ai/files/models'},
   ];
 
   final List<String> _filters = [
@@ -38,6 +42,9 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
   void initState() {
     super.initState();
     _selectedModel = widget.state.pickerFiles.first;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.state.scanLocalModelFiles();
+    });
   }
 
   void _handleValidateAndImport() async {
@@ -129,21 +136,90 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                       Row(
                         children: [
                           IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.search, color: AppColors.onSurfaceVariant, size: 20),
+                            onPressed: () => setState(() => _isSearching = !_isSearching),
+                            icon: Icon(
+                              _isSearching ? Icons.close : Icons.search,
+                              color: _isSearching ? AppColors.primary : AppColors.onSurfaceVariant,
+                              size: 20,
+                            ),
+                            tooltip: 'Поиск моделей',
                           ),
                           IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.grid_view, color: AppColors.onSurfaceVariant, size: 20),
+                            onPressed: () => setState(() => _isGridView = !_isGridView),
+                            icon: Icon(
+                              _isGridView ? Icons.view_list : Icons.grid_view,
+                              color: AppColors.onSurfaceVariant,
+                              size: 20,
+                            ),
+                            tooltip: _isGridView ? 'Список' : 'Сетка',
                           ),
-                          IconButton(
-                            onPressed: () {},
+                          PopupMenuButton<String>(
                             icon: const Icon(Icons.more_vert, color: AppColors.onSurfaceVariant, size: 20),
+                            color: AppColors.surfaceContainer,
+                            onSelected: (val) {
+                              if (val == 'scan') {
+                                widget.state.scanLocalModelFiles();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Сканирование накопителя завершено'),
+                                    duration: Duration(seconds: 1),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              } else {
+                                setState(() => _sortMode = val);
+                              }
+                            },
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(
+                                value: 'scan',
+                                child: Text('Сканировать накопитель', style: TextStyle(color: AppColors.onSurface, fontSize: 13)),
+                              ),
+                              const PopupMenuItem(
+                                value: 'size',
+                                child: Text('Сортировать по размеру', style: TextStyle(color: AppColors.onSurface, fontSize: 13)),
+                              ),
+                              const PopupMenuItem(
+                                value: 'name',
+                                child: Text('Сортировать по имени', style: TextStyle(color: AppColors.onSurface, fontSize: 13)),
+                              ),
+                              const PopupMenuItem(
+                                value: 'default',
+                                child: Text('Сбросить сортировку', style: TextStyle(color: AppColors.onSurface, fontSize: 13)),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ],
                   ),
+                  if (_isSearching) ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      autofocus: true,
+                      style: const TextStyle(
+                        fontFamily: AppTypography.sansFont,
+                        fontSize: 13,
+                        color: AppColors.onSurface,
+                      ),
+                      onChanged: (val) => setState(() => _searchQuery = val),
+                      decoration: InputDecoration(
+                        hintText: 'Поиск по имени файла или архитектуре...',
+                        hintStyle: const TextStyle(
+                          fontFamily: AppTypography.sansFont,
+                          fontSize: 13,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                        filled: true,
+                        fillColor: AppColors.surfaceContainerHighest,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   // Storage provider chips
                   SingleChildScrollView(
@@ -254,8 +330,8 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                         Icon(Icons.folder_open, size: 18, color: AppColors.secondary),
                         SizedBox(width: 8),
                         Text(
-                          '/storage/emulated/0/Download/bitnet_models/',
-                          style: TextStyle(
+                          _storageProviders[_selectedStorageIndex]['path'] as String,
+                          style: const TextStyle(
                             fontFamily: AppTypography.monoFont,
                             fontSize: 11,
                             color: AppColors.onSurfaceVariant,
@@ -274,7 +350,7 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                           Icon(Icons.circle, size: 6, color: AppColors.secondary),
                           SizedBox(width: 4),
                           Text(
-                            '42.6 ГБ из 256 ГБ',
+                            'Локально',
                             style: TextStyle(
                               fontFamily: AppTypography.monoFont,
                               fontSize: 10,
@@ -288,15 +364,68 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                 ),
               ),
             ),
-            // File List
+            // File List or Grid
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: widget.state.pickerFiles.length,
-                itemBuilder: (context, index) {
-                  final file = widget.state.pickerFiles[index];
-                  final isSelected = _selectedModel.id == file.id;
-                  return _buildFileItem(file, isSelected);
+              child: Builder(
+                builder: (context) {
+                  var files = List<ModelItem>.from(widget.state.pickerFiles);
+                  if (_selectedFilterIndex == 1) {
+                    files = files.where((f) => f.format == '.tl1').toList();
+                  } else if (_selectedFilterIndex == 2) {
+                    files = files.where((f) => f.format == '.gguf').toList();
+                  } else if (_selectedFilterIndex == 3) {
+                    files = files.where((f) => f.format == '.bin').toList();
+                  }
+                  if (_searchQuery.trim().isNotEmpty) {
+                    final q = _searchQuery.trim().toLowerCase();
+                    files = files.where((f) => f.name.toLowerCase().contains(q) || f.architecture.toLowerCase().contains(q)).toList();
+                  }
+                  if (_sortMode == 'size') {
+                    files.sort((a, b) => b.size.compareTo(a.size));
+                  } else if (_sortMode == 'name') {
+                    files.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                  }
+
+                  if (files.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.search_off, size: 36, color: AppColors.onSurfaceVariant),
+                          SizedBox(height: 8),
+                          Text('Модели не найдены', style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 13)),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (_isGridView) {
+                    return GridView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 1.1,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                      ),
+                      itemCount: files.length,
+                      itemBuilder: (context, index) {
+                        final file = files[index];
+                        final isSelected = _selectedModel.id == file.id;
+                        return _buildFileGridItem(file, isSelected);
+                      },
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: files.length,
+                    itemBuilder: (context, index) {
+                      final file = files[index];
+                      final isSelected = _selectedModel.id == file.id;
+                      return _buildFileItem(file, isSelected);
+                    },
+                  );
                 },
               ),
             ),
@@ -673,6 +802,105 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                       ),
                     ],
                   ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileGridItem(ModelItem file, bool isSelected) {
+    final isDisabled = !file.isCompatible;
+
+    return Opacity(
+      opacity: isDisabled ? 0.45 : 1.0,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.surfaceContainerHigh : AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: isSelected
+              ? Border.all(color: AppColors.primary, width: 1.5)
+              : Border.all(color: AppColors.outlineVariant.withOpacity(0.15), width: 0.5),
+        ),
+        child: InkWell(
+          onTap: isDisabled ? null : () => setState(() => _selectedModel = file),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primaryContainer : AppColors.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isDisabled
+                            ? Icons.block
+                            : (file.format == '.tl1' ? Icons.memory : Icons.layers),
+                        size: 18,
+                        color: isSelected ? AppColors.onPrimaryContainer : AppColors.tertiary,
+                      ),
+                    ),
+                    if (isSelected)
+                      Container(
+                        width: 18,
+                        height: 18,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check, size: 12, color: AppColors.onPrimary),
+                      ),
+                  ],
+                ),
+                Text(
+                  file.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTypography.sansFont,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? AppColors.primary : AppColors.onSurface,
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      file.size,
+                      style: const TextStyle(
+                        fontFamily: AppTypography.monoFont,
+                        fontSize: 10,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        file.format,
+                        style: const TextStyle(
+                          fontFamily: AppTypography.monoFont,
+                          fontSize: 9,
+                          color: AppColors.tertiary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

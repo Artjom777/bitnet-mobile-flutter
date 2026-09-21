@@ -38,11 +38,11 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build Debug APK
-        run: flutter build apk --debug --android-skip-build-dependency-validation
+      - name: Build Debug APK (ARM64-v8a)
+        run: flutter build apk --debug --target-platform android-arm64 --android-skip-build-dependency-validation
 
-      - name: Build Release APK
-        run: flutter build apk --release --android-skip-build-dependency-validation
+      - name: Build Release APK (ARM64-v8a)
+        run: flutter build apk --release --target-platform android-arm64 --android-skip-build-dependency-validation
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4

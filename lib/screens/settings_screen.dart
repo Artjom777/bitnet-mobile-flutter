@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_typography.dart';
@@ -66,6 +67,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
     widget.state.resetSettings();
     _promptController.text = widget.state.settings.systemPrompt;
     _showFloatingToast('Значения возвращены по умолчанию');
+  }
+
+  void _showChangeDirectoryDialog() {
+    final paths = [
+      '/sdcard/Download/BitNet',
+      '/sdcard/BitNet/models',
+      '/data/data/com.bitnet.ai/files/models',
+      '${Directory.systemTemp.path}/bitnet_models',
+    ];
+    final controller = TextEditingController(text: widget.state.settings.modelsDirectory);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainer,
+        title: const Text('Каталог хранения моделей', style: TextStyle(color: AppColors.onSurface, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Выберите стандартный путь или задайте свой:', style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 12)),
+            const SizedBox(height: 8),
+            ...paths.map((p) => ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.folder, size: 18, color: AppColors.primary),
+              title: Text(p, style: const TextStyle(fontFamily: AppTypography.monoFont, fontSize: 11, color: AppColors.onSurface)),
+              onTap: () {
+                controller.text = p;
+              },
+            )),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              style: const TextStyle(fontFamily: AppTypography.monoFont, fontSize: 12, color: AppColors.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Путь к папке',
+                labelStyle: const TextStyle(color: AppColors.onSurfaceVariant, fontSize: 11),
+                filled: true,
+                fillColor: AppColors.surfaceContainerLowest,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена', style: TextStyle(color: AppColors.onSurfaceVariant)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newPath = controller.text.trim();
+              if (newPath.isNotEmpty) {
+                try {
+                  final d = Directory(newPath);
+                  if (!await d.exists()) {
+                    await d.create(recursive: true);
+                  }
+                } catch (_) {}
+                widget.state.updateSettings(widget.state.settings.copyWith(modelsDirectory: newPath));
+                widget.state.scanLocalModelFiles();
+                Navigator.pop(ctx);
+                _showFloatingToast('Каталог обновлен: $newPath');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
+            ),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -731,7 +807,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const Divider(height: 1, color: AppColors.surfaceContainerHighest),
               // Model Storage Folder
               InkWell(
-                onTap: () => _showFloatingToast('Каталог синхронизирован с SAF'),
+                onTap: _showChangeDirectoryDialog,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(

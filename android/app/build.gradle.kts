@@ -15,13 +15,14 @@ android {
 
     defaultConfig {
         applicationId = "com.bitnet.ai"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+            abiFilters.clear()
+            abiFilters.addAll(listOf("arm64-v8a"))
         }
         externalNativeBuild {
             cmake {

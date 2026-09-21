@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/chat_message.dart';
@@ -173,18 +174,17 @@ class BitNetState extends ChangeNotifier {
   }
 
   void _initMessages() {
-    _messages = [
-      ChatMessage(
-        id: 'msg_1',
-        text:
-            'Движок bitnet.cpp инициализирован. Инференс выполняется локально через нативную C++ библиотеку libbitnet.so (векторные инструкции ARM NEON GEMM ADD {-1, 0, +1}). Задайте вопрос или отправьте промпт для генерации ответа в реальном времени.',
-        isUser: false,
-        timestamp: '12:00',
-        tokensPerSec: 31.8,
-        latencyMs: 14,
-        powerWatts: 0.85,
-      ),
-    ];
+    _messages = [];
+  }
+
+  void clearMessages() {
+    _messages.clear();
+    _terminalLogs.add({
+      'tag': 'chat_cleared',
+      'color': 'secondary',
+      'text': 'История диалога очищена',
+    });
+    notifyListeners();
   }
 
   void _initLogs() {
@@ -264,6 +264,81 @@ class BitNetState extends ChangeNotifier {
   }
 
   void importCustomModel(ModelItem file) => importModel(file);
+
+  void deleteModel(ModelItem model) {
+    if (model.isLoaded) {
+      unloadModel(model);
+    }
+    _models.removeWhere((m) => m.id == model.id);
+    _pickerFiles.removeWhere((m) => m.id == model.id);
+    try {
+      final f = File(model.filename);
+      if (f.existsSync()) {
+        f.deleteSync();
+      }
+    } catch (_) {}
+    _terminalLogs.add({
+      'tag': 'model_deleted',
+      'color': 'tertiary',
+      'text': 'Удалена модель ${model.name}',
+    });
+    notifyListeners();
+  }
+
+  void clearLogs() {
+    _terminalLogs.clear();
+    notifyListeners();
+  }
+
+  Future<void> scanLocalModelFiles() async {
+    final searchDirs = [
+      Directory('/sdcard/Download/BitNet'),
+      Directory('/sdcard/Download'),
+      Directory('/sdcard/BitNet/models'),
+      Directory('/data/data/com.bitnet.ai/files/models'),
+      Directory('${Directory.systemTemp.path}/bitnet_models'),
+    ];
+
+    for (final dir in searchDirs) {
+      if (await dir.exists()) {
+        try {
+          final entities = dir.listSync();
+          for (final e in entities) {
+            if (e is File) {
+              final path = e.path;
+              final name = path.split('/').last;
+              if (name.endsWith('.gguf') || name.endsWith('.tl1') || name.endsWith('.bin')) {
+                final sizeBytes = await e.length();
+                final sizeMb = (sizeBytes / (1024 * 1024)).toStringAsFixed(1);
+                final item = ModelItem(
+                  id: 'scanned_${path.hashCode}',
+                  name: name,
+                  architecture: name.endsWith('.tl1') ? 'BitNet 1.58b' : 'GGUF Ternary',
+                  filename: path,
+                  format: name.endsWith('.tl1') ? '.tl1' : (name.endsWith('.gguf') ? '.gguf' : '.bin'),
+                  size: '$sizeMb МБ',
+                  contextSize: 4096,
+                  quantization: '1.58-bit ternary',
+                  ramRequirement: '${((sizeBytes / (1024 * 1024 * 1024)) + 0.3).toStringAsFixed(1)} ГБ',
+                  speed: '~32 t/s',
+                  isLoaded: false,
+                  status: 'Готов к импорту',
+                  isCompatible: !name.endsWith('.bin'),
+                  archSupport: 'ARM NEON GEMM ADD',
+                  dateModified: 'На накопителе',
+                  description: 'Обнаружен в ${dir.path}',
+                );
+                if (!_pickerFiles.any((f) => f.filename == path)) {
+                  _pickerFiles.add(item);
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    notifyListeners();
+  }
 
   // Settings
   void updateSettings(InferenceSettings newSettings) {

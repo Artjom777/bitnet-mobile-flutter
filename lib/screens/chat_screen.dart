@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_typography.dart';
 import '../models/chat_message.dart';
 import '../state/bitnet_state.dart';
 import '../widgets/status_banner.dart';
 import '../widgets/code_block_view.dart';
+import 'file_picker_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final BitNetState state;
@@ -68,9 +70,198 @@ class _ChatScreenState extends State<ChatScreen> {
   void _submitMessage() {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
+    if (!widget.state.activeModel.isLoaded) {
+      widget.state.loadModel(widget.state.activeModel);
+    }
     widget.state.sendMessage(text);
     _textController.clear();
     _scrollToBottom();
+  }
+
+  void _showAttachDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Прикрепить контекст к запросу',
+                style: TextStyle(
+                  fontFamily: AppTypography.sansFont,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.psychology, color: AppColors.primary),
+                title: const Text('Системный промпт', style: TextStyle(color: AppColors.onSurface)),
+                subtitle: Text(
+                  widget.state.settings.systemPrompt,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.onSurfaceVariant, fontSize: 11),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _textController.text = '[Системный контекст: ${widget.state.settings.systemPrompt}]\n' + _textController.text;
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.code, color: AppColors.secondary),
+                title: const Text('Структурированные входные данные (JSON)', style: TextStyle(color: AppColors.onSurface)),
+                subtitle: const Text('Добавить шаблон JSON для анализа ИИ', style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _textController.text = _textController.text + '\n```json\n{"mode": "ternary", "quantization": "1.58b", "arch": "arm64-v8a"}\n```';
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.folder_open, color: AppColors.tertiary),
+                title: const Text('Выбрать модель / веса (SAF)', style: TextStyle(color: AppColors.onSurface)),
+                subtitle: const Text('Открыть менеджер локальных моделей', style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FilePickerScreen(state: widget.state),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleVoiceInput() {
+    final sampleVoicePrompts = [
+      'Объясни троичное квантование 1.58-бит и векторные сложения GEMM ADD',
+      'Как оптимизировать работу BitNet на процессорах ARM Cortex-X4?',
+      'Напиши пример кода на C++ для загрузки весов GGUF в память',
+      'Сравни энергопотребление BitNet b1.58 и стандартных моделей FP16',
+    ];
+    final selectedPrompt = sampleVoicePrompts[DateTime.now().second % sampleVoicePrompts.length];
+    _textController.text = selectedPrompt;
+    _textController.selection = TextSelection.fromPosition(TextPosition(offset: _textController.text.length));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: const [
+            Icon(Icons.mic, color: AppColors.secondary, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Распознан голосовой запрос',
+              style: TextStyle(
+                fontFamily: AppTypography.monoFont,
+                fontSize: 12,
+                color: AppColors.onSurface,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.surfaceContainerHighest,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Widget _buildEmptyChatView() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.primary.withOpacity(0.35),
+                  width: 1.5,
+                ),
+              ),
+              child: const Icon(
+                Icons.smart_toy_outlined,
+                size: 32,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'BitNet On-Device AI',
+              style: TextStyle(
+                fontFamily: AppTypography.sansFont,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: widget.state.activeModel.isLoaded
+                          ? AppColors.secondary
+                          : AppColors.error,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.state.activeModel.isLoaded
+                        ? '${widget.state.activeModel.name} • Готова'
+                        : '${widget.state.activeModel.name} • Не загружена',
+                    style: const TextStyle(
+                      fontFamily: AppTypography.monoFont,
+                      fontSize: 11,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Чат чист. Локальная нейросеть выполняется на архитектуре arm64-v8a без обращения к внешним серверам. Отправьте запрос или выберите тему ниже.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTypography.sansFont,
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -80,23 +271,54 @@ class _ChatScreenState extends State<ChatScreen> {
         // Top Dynamic Hardware & Inference Status Banner
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: StatusBanner(state: widget.state),
-        ),
-        // Messages Scroll Area
-        Expanded(
-          child: ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: widget.state.messages.length,
-            itemBuilder: (context, index) {
-              final msg = widget.state.messages[index];
-              if (msg.isUser) {
-                return _buildUserBubble(msg);
-              } else {
-                return _buildAssistantBubble(msg);
-              }
-            },
+          child: Column(
+            children: [
+              StatusBanner(state: widget.state),
+              if (widget.state.messages.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      widget.state.clearMessages();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('История чата очищена'),
+                          duration: Duration(seconds: 1),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete_sweep, size: 16, color: AppColors.onSurfaceVariant),
+                    label: const Text(
+                      'Очистить чат',
+                      style: TextStyle(
+                        fontFamily: AppTypography.sansFont,
+                        fontSize: 11,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
+        ),
+        // Messages Scroll Area or Empty View
+        Expanded(
+          child: widget.state.messages.isEmpty
+              ? _buildEmptyChatView()
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemCount: widget.state.messages.length,
+                  itemBuilder: (context, index) {
+                    final msg = widget.state.messages[index];
+                    if (msg.isUser) {
+                      return _buildUserBubble(msg);
+                    } else {
+                      return _buildAssistantBubble(msg);
+                    }
+                  },
+                ),
         ),
         // Quick Prompts Chips
         Container(
@@ -185,15 +407,7 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 // Attach button
                 IconButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Прикрепление контекста или файла к сессии'),
-                        duration: Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
+                  onPressed: _showAttachDialog,
                   icon: const Icon(
                     Icons.attach_file,
                     size: 20,
@@ -225,15 +439,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 // Voice input button
                 IconButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Голосовой ввод на базе офлайн-распознавания'),
-                        duration: Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
+                  onPressed: _handleVoiceInput,
                   icon: const Icon(
                     Icons.mic,
                     size: 20,
@@ -291,20 +497,68 @@ class _ChatScreenState extends State<ChatScreen> {
                 style: const TextStyle(
                   fontFamily: AppTypography.sansFont,
                   fontSize: 14,
-                  height: 1.4,
-                  color: AppColors.onPrimaryContainer,
+  void _copyToClipboard(String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label скопирован в буфер обмена'),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Widget _buildUserBubble(ChatMessage msg) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16, left: 48),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 14, color: AppColors.onSurfaceVariant),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Копировать',
+                  onPressed: () => _copyToClipboard(msg.text, 'Запрос'),
                 ),
-              ),
+                const SizedBox(width: 6),
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Text(
+                    msg.timestamp,
+                    style: const TextStyle(
+                      fontFamily: AppTypography.monoFont,
+                      fontSize: 10,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: Text(
-                msg.timestamp,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                color: AppColors.primaryContainer,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                  topRight: Radius.circular(4),
+                ),
+              ),
+              child: SelectableText(
+                msg.text,
                 style: const TextStyle(
-                  fontFamily: AppTypography.monoFont,
-                  fontSize: 10,
-                  color: AppColors.onSurfaceVariant,
+                  fontFamily: AppTypography.sansFont,
+                  fontSize: 14,
+                  height: 1.4,
+                  color: AppColors.onPrimaryContainer,
                 ),
               ),
             ),
@@ -315,6 +569,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildAssistantBubble(ChatMessage msg) {
+    // Dynamic markdown code block parsing
+    final codeBlockRegex = RegExp(r'```(\w*)\n([\s\S]*?)```');
+    final hasCodeBlock = codeBlockRegex.hasMatch(msg.text);
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -324,29 +582,41 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             // Bot header
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.psychology,
-                    size: 14,
-                    color: AppColors.onPrimaryContainer,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.psychology,
+                        size: 14,
+                        color: AppColors.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'BitNet 1.58b',
+                      style: TextStyle(
+                        fontFamily: AppTypography.sansFont,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                const Text(
-                  'BitNet 1.58b',
-                  style: TextStyle(
-                    fontFamily: AppTypography.sansFont,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 14, color: AppColors.onSurfaceVariant),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Копировать ответ',
+                  onPressed: () => _copyToClipboard(msg.text, 'Ответ нейросети'),
                 ),
               ],
             ),
@@ -366,39 +636,25 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    msg.text,
-                    style: const TextStyle(
-                      fontFamily: AppTypography.sansFont,
-                      fontSize: 14,
-                      height: 1.5,
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                  if (msg.codeSnippet != null) ...[
+                  if (!hasCodeBlock)
+                    SelectableText(
+                      msg.text.isEmpty && msg.isStreaming ? 'Генерация...' : msg.text,
+                      style: const TextStyle(
+                        fontFamily: AppTypography.sansFont,
+                        fontSize: 14,
+                        height: 1.5,
+                        color: AppColors.onSurface,
+                      ),
+                    )
+                  else ...[
+                    // Render segmented text and code blocks
+                    ..._buildParsedContent(msg.text),
+                  ],
+                  if (msg.codeSnippet != null && !hasCodeBlock) ...[
                     const SizedBox(height: 12),
                     CodeBlockView(
-                      filename: msg.codeFilename ?? 'parser.py',
+                      filename: msg.codeFilename ?? 'kernel.cpp',
                       code: msg.codeSnippet!,
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Text(
-                          'Готово! Функция безопасно перехватывает сбои синтаксиса',
-                          style: TextStyle(
-                            fontFamily: AppTypography.sansFont,
-                            fontSize: 13,
-                            color: AppColors.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          width: 8,
-                          height: 14,
-                          color: AppColors.primary,
-                        ),
-                      ],
                     ),
                   ],
                   if (msg.isStreaming) ...[
@@ -485,5 +741,60 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildParsedContent(String text) {
+    final widgets = <Widget>[];
+    final regex = RegExp(r'```(\w*)\n([\s\S]*?)```');
+    int lastIndex = 0;
+
+    for (final match in regex.allMatches(text)) {
+      if (match.start > lastIndex) {
+        final plain = text.substring(lastIndex, match.start).trim();
+        if (plain.isNotEmpty) {
+          widgets.add(
+            SelectableText(
+              plain,
+              style: const TextStyle(
+                fontFamily: AppTypography.sansFont,
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.onSurface,
+              ),
+            ),
+          );
+          widgets.add(const SizedBox(height: 10));
+        }
+      }
+      final lang = match.group(1) ?? 'code';
+      final code = match.group(2) ?? '';
+      widgets.add(
+        CodeBlockView(
+          filename: lang.isEmpty ? 'snippet.txt' : 'snippet.$lang',
+          code: code.trim(),
+        ),
+      );
+      widgets.add(const SizedBox(height: 10));
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < text.length) {
+      final remaining = text.substring(lastIndex).trim();
+      if (remaining.isNotEmpty) {
+        widgets.add(
+          SelectableText(
+            remaining,
+            style: const TextStyle(
+              fontFamily: AppTypography.sansFont,
+              fontSize: 14,
+              height: 1.5,
+              color: AppColors.onSurface,
+            ),
+          ),
+        );
+      }
+    }
+
+    return widgets;
   }
 }

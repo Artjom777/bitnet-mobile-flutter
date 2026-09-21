@@ -578,34 +578,73 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                       ),
                     ],
                   ),
-                  InkWell(
-                    onTap: _copyLog,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _logCopied ? Icons.check : Icons.content_copy,
-                            size: 13,
-                            color: AppColors.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _logCopied ? 'Скопировано' : 'Копия',
-                            style: const TextStyle(
-                              fontFamily: AppTypography.monoFont,
-                              fontSize: 10,
-                              color: AppColors.onSurfaceVariant,
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          widget.state.clearLogs();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Логи очищены'),
+                              duration: Duration(seconds: 1),
+                              behavior: SnackBarBehavior.floating,
                             ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        ],
+                          child: Row(
+                            children: const [
+                              Icon(Icons.delete_sweep, size: 13, color: AppColors.onSurfaceVariant),
+                              SizedBox(width: 4),
+                              Text(
+                                'Очистить',
+                                style: TextStyle(
+                                  fontFamily: AppTypography.monoFont,
+                                  fontSize: 10,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: _copyLog,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _logCopied ? Icons.check : Icons.content_copy,
+                                size: 13,
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _logCopied ? 'Скопировано' : 'Копия',
+                                style: const TextStyle(
+                                  fontFamily: AppTypography.monoFont,
+                                  fontSize: 10,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

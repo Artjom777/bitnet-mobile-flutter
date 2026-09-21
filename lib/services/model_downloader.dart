@@ -32,28 +32,83 @@ class ModelDownloader {
         'https://huggingface.co/Green-Sky/bitnet_b1_58-3B-GGUF/resolve/main/bitnet_b1_58-3B.q2_2.gguf',
   };
 
+  bool _isCanceled = false;
+
+  void cancelCurrentDownload() {
+    _isCanceled = true;
+  }
+
+  static Future<Directory> resolveModelStorageDir() async {
+    final candidates = [
+      Directory('/data/data/com.bitnet.ai/files/models'),
+      Directory('/sdcard/Download/BitNet'),
+      Directory('/sdcard/BitNet/models'),
+      Directory('${Directory.systemTemp.path}/bitnet_models'),
+    ];
+
+    for (final dir in candidates) {
+      try {
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
+        }
+        final testFile = File('${dir.path}/.perm_test');
+        await testFile.writeAsString('ok');
+        await testFile.delete();
+        return dir;
+      } catch (_) {
+        continue;
+      }
+    }
+    return Directory('${Directory.systemTemp.path}/bitnet_models')..createSync(recursive: true);
+  }
+
   Stream<DownloadProgress> downloadModel({
     required String url,
     required String destinationPath,
   }) async* {
+    _isCanceled = false;
     final client = HttpClient();
-    try {
-      final request = await client.getUrl(Uri.parse(url));
-      final response = await request.close();
+    client.connectionTimeout = const Duration(seconds: 20);
 
-      if (response.statusCode != 200) {
+    try {
+      Uri currentUri = Uri.parse(url);
+      HttpClientResponse? response;
+      int redirectHops = 0;
+
+      while (redirectHops < 8) {
+        final request = await client.getUrl(currentUri);
+        request.followRedirects = true;
+        response = await request.close();
+
+        if (response.isRedirect ||
+            response.statusCode == HttpStatus.movedPermanently ||
+            response.statusCode == HttpStatus.found ||
+            response.statusCode == HttpStatus.seeOther ||
+            response.statusCode == HttpStatus.temporaryRedirect ||
+            response.statusCode == HttpStatus.permanentRedirect) {
+          final loc = response.headers.value(HttpHeaders.locationHeader);
+          if (loc != null) {
+            currentUri = currentUri.resolve(loc);
+            redirectHops++;
+            continue;
+          }
+        }
+        break;
+      }
+
+      if (response == null || response.statusCode != 200) {
         yield DownloadProgress(
           receivedBytes: 0,
           totalBytes: 0,
           progressPercent: 0,
           speedMbPerSec: 0,
           isCompleted: false,
-          error: 'Ошибка HTTP: ${response.statusCode}',
+          error: 'Ошибка HTTP: ${response?.statusCode ?? 'Нет ответа'}',
         );
         return;
       }
 
-      final totalBytes = response.contentLength > 0 ? response.contentLength : 1250000000;
+      final totalBytes = response.contentLength > 0 ? response.contentLength : 83066016;
       int receivedBytes = 0;
       final file = File(destinationPath);
       await file.parent.create(recursive: true);
@@ -63,6 +118,21 @@ class ModelDownloader {
       int lastReportBytes = 0;
 
       await for (final chunk in response) {
+        if (_isCanceled) {
+          await sink.flush();
+          await sink.close();
+          if (await file.exists()) await file.delete();
+          yield DownloadProgress(
+            receivedBytes: receivedBytes,
+            totalBytes: totalBytes,
+            progressPercent: 0,
+            speedMbPerSec: 0,
+            isCompleted: false,
+            error: 'Загрузка отменена пользователем',
+          );
+          return;
+        }
+
         sink.add(chunk);
         receivedBytes += chunk.length;
 

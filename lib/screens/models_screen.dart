@@ -25,6 +25,41 @@ class _ModelsScreenState extends State<ModelsScreen> {
     );
   }
 
+  void _confirmDeleteModel(ModelItem model) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainer,
+        title: const Text('Удаление модели', style: TextStyle(color: AppColors.onSurface, fontSize: 16)),
+        content: Text('Вы уверены, что хотите удалить модель ${model.name}?', style: const TextStyle(color: AppColors.onSurfaceVariant, fontSize: 13)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена', style: TextStyle(color: AppColors.onSurfaceVariant)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.state.deleteModel(model);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Модель ${model.name} удалена'),
+                  backgroundColor: AppColors.surfaceContainerHighest,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorContainer,
+              foregroundColor: AppColors.onErrorContainer,
+            ),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showUrlDownloadDialog() {
     String selectedUrl = ModelDownloader.officialModels.values.first;
     final controller = TextEditingController(text: selectedUrl);
@@ -145,6 +180,17 @@ class _ModelsScreenState extends State<ModelsScreen> {
             ],
           ),
           actions: [
+            if (isDownloading)
+              TextButton(
+                onPressed: () {
+                  ModelDownloader.instance.cancelCurrentDownload();
+                  setDialogState(() {
+                    isDownloading = false;
+                    statusText = 'Загрузка отменена';
+                  });
+                },
+                child: const Text('Отменить загрузку', style: TextStyle(color: AppColors.error)),
+              ),
             if (!isDownloading)
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
@@ -163,8 +209,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                       });
 
                       final filename = url.split('/').last;
-                      final dir = Directory('/data/data/com.bitnet.ai/files/models');
-                      await dir.create(recursive: true);
+                      final dir = await ModelDownloader.resolveModelStorageDir();
                       final destPath = '${dir.path}/$filename';
 
                       final stream = ModelDownloader.instance.downloadModel(
@@ -855,6 +900,11 @@ class _ModelsScreenState extends State<ModelsScreen> {
                       icon: const Icon(Icons.analytics, size: 18, color: AppColors.onSurfaceVariant),
                       tooltip: 'Статистика весов',
                     ),
+                    IconButton(
+                      onPressed: () => _confirmDeleteModel(model),
+                      icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                      tooltip: 'Удалить модель',
+                    ),
                   ],
                 ),
                 ElevatedButton.icon(
@@ -890,6 +940,14 @@ class _ModelsScreenState extends State<ModelsScreen> {
                             ? AppColors.secondary
                             : AppColors.onSurfaceVariant,
                       ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      onPressed: () => _confirmDeleteModel(model),
+                      icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.onSurfaceVariant),
+                      tooltip: 'Удалить модель',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
