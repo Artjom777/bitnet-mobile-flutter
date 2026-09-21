@@ -16,12 +16,13 @@ struct BitNetConfig {
     int hidden_dim = 5632;
     int n_layers = 16;
     int n_heads = 16;
+    int n_kv_heads = 16;
     int head_dim = 128;
     int vocab_size = 32000;
     int max_context = 4096;
     int n_threads = 4;
     float norm_eps = 1e-5f;
-    float rope_theta = 10000.0f;
+    float rope_theta = 500000.0f;
     std::string model_name = "BitNet-b1.58-2B-4T";
     std::string arch = "BitNet 1.58b Ternary";
 };
@@ -127,12 +128,16 @@ private:
 
         std::vector<float> attn_norm;
         std::vector<float> ffn_norm;
+        std::vector<float> attn_sub_norm;
+        std::vector<float> ffn_sub_norm;
 
         void clear() {
             wq.clear(); wk.clear(); wv.clear(); wo.clear();
             w_gate.clear(); w_up.clear(); w_down.clear();
             attn_norm.clear(); attn_norm.shrink_to_fit();
             ffn_norm.clear(); ffn_norm.shrink_to_fit();
+            attn_sub_norm.clear(); attn_sub_norm.shrink_to_fit();
+            ffn_sub_norm.clear(); ffn_sub_norm.shrink_to_fit();
         }
     };
 

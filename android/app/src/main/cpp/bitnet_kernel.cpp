@@ -235,10 +235,10 @@ void bitnet_swiglu(float* gate, const float* up, int size) {
     }
 }
 
-void bitnet_rope(float* q, float* k, int n_heads, int head_dim, int pos, float theta) {
+void bitnet_rope(float* x, int n_heads, int head_dim, int pos, float theta) {
+    if (!x || n_heads <= 0 || head_dim <= 0) return;
     for (int h = 0; h < n_heads; ++h) {
-        float* q_head = q + h * head_dim;
-        float* k_head = k + h * head_dim;
+        float* head = x + h * head_dim;
 
         for (int i = 0; i < head_dim; i += 2) {
             float freq = 1.0f / std::pow(theta, static_cast<float>(i) / static_cast<float>(head_dim));
@@ -246,17 +246,10 @@ void bitnet_rope(float* q, float* k, int n_heads, int head_dim, int pos, float t
             float cos_v = std::cos(val);
             float sin_v = std::sin(val);
 
-            // Rotate Q
-            float q0 = q_head[i];
-            float q1 = q_head[i + 1];
-            q_head[i]     = q0 * cos_v - q1 * sin_v;
-            q_head[i + 1] = q0 * sin_v + q1 * cos_v;
-
-            // Rotate K
-            float k0 = k_head[i];
-            float k1 = k_head[i + 1];
-            k_head[i]     = k0 * cos_v - k1 * sin_v;
-            k_head[i + 1] = k0 * sin_v + k1 * cos_v;
+            float v0 = head[i];
+            float v1 = head[i + 1];
+            head[i]     = v0 * cos_v - v1 * sin_v;
+            head[i + 1] = v0 * sin_v + v1 * cos_v;
         }
     }
 }

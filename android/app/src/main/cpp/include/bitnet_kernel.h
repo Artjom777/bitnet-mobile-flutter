@@ -54,8 +54,8 @@ void bitnet_softmax(float* x, int size);
 // SwiGLU activation: gate = silu(gate) * up
 void bitnet_swiglu(float* gate, const float* up, int size);
 
-// Rotary Positional Embedding (RoPE)
-void bitnet_rope(float* q, float* k, int n_heads, int head_dim, int pos, float theta = 10000.0f);
+// Rotary Position Embeddings (RoPE)
+void bitnet_rope(float* x, int n_heads, int head_dim, int pos, float theta = 10000.0f);
 
 // Convert IEEE 754 half-precision float (16-bit) to float32
 float bitnet_fp16_to_fp32(uint16_t h);

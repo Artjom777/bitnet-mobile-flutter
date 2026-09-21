@@ -83,8 +83,8 @@ void BitNetLinear::matvec(const float* x, float* y, int n_threads) const {
         return;
     }
 
-    // 2. Microsoft BitNet I2_S format (2-bit signed ternary interleaved blocks)
-    if (type == 29 || type == 30) {
+    // 2. Microsoft BitNet I2_S format (2-bit signed ternary interleaved blocks, types 29, 30, 36, 37)
+    if (type == 29 || type == 30 || type == 36 || type == 37) {
         std::vector<int8_t> q_act(in_features);
         float act_scale = 1.0f;
         bitnet_quantize_activations(x, q_act.data(), &act_scale, in_features);
@@ -361,7 +361,7 @@ void BitNetEngine::load_gguf_tensors(
             if (ti.type == 0) byte_size = static_cast<size_t>(lm_head_.in_features) * lm_head_.out_features * sizeof(float);
             else if (ti.type == 1) byte_size = static_cast<size_t>(lm_head_.in_features) * lm_head_.out_features * sizeof(uint16_t);
             else if (ti.type == 7 || ti.type == 8) byte_size = static_cast<size_t>(lm_head_.out_features) * (lm_head_.in_features / 32) * 34;
-            else if (ti.type == 29 || ti.type == 30) byte_size = static_cast<size_t>(lm_head_.out_features) * (lm_head_.in_features / 4) + 32;
+            else if (ti.type == 29 || ti.type == 30 || ti.type == 36 || ti.type == 37) byte_size = static_cast<size_t>(lm_head_.out_features) * (lm_head_.in_features / 4) + 32;
             else byte_size = static_cast<size_t>(lm_head_.out_features) * ((lm_head_.in_features + 3) / 4);
 
             lm_head_.raw_data.resize(byte_size);
@@ -372,17 +372,56 @@ void BitNetEngine::load_gguf_tensors(
             continue;
         }
 
-        // 4. Layer weights: blk.X...
+        // 4. Layer weights: blk.X... or layers.X...
         int layer_idx = -1;
-        if (ti.name.rfind("blk.", 0) == 0) {
-            size_t dot2 = ti.name.find('.', 4);
+        size_t bpos = ti.name.find("blk.");
+        if (bpos != std::string::npos) {
+            size_t dot2 = ti.name.find('.', bpos + 4);
             if (dot2 != std::string::npos) {
-                layer_idx = std::atoi(ti.name.substr(4, dot2 - 4).c_str());
+                layer_idx = std::atoi(ti.name.substr(bpos + 4, dot2 - (bpos + 4)).c_str());
+            }
+        } else {
+            size_t lpos = ti.name.find("layers.");
+            if (lpos != std::string::npos) {
+                size_t dot2 = ti.name.find('.', lpos + 7);
+                if (dot2 != std::string::npos) {
+                    layer_idx = std::atoi(ti.name.substr(lpos + 7, dot2 - (lpos + 7)).c_str());
+                }
             }
         }
 
         if (layer_idx >= 0 && layer_idx < config_.n_layers) {
             auto& lay = layers_[layer_idx];
+
+            if (ti.name.find("attn_sub_norm.weight") != std::string::npos) {
+                lay.attn_sub_norm.assign(config_.dim, 1.0f);
+                if (ti.type == 0) {
+                    file.read(reinterpret_cast<char*>(lay.attn_sub_norm.data()),
+                              std::min(lay.attn_sub_norm.size() * sizeof(float), static_cast<size_t>(ti.dims[0] * sizeof(float))));
+                } else if (ti.type == 1) {
+                    std::vector<uint16_t> f16_buf(ti.dims[0]);
+                    file.read(reinterpret_cast<char*>(f16_buf.data()), f16_buf.size() * sizeof(uint16_t));
+                    for (size_t i = 0; i < std::min(f16_buf.size(), lay.attn_sub_norm.size()); ++i) {
+                        lay.attn_sub_norm[i] = bitnet_fp16_to_fp32(f16_buf[i]);
+                    }
+                }
+                continue;
+            }
+
+            if (ti.name.find("ffn_sub_norm.weight") != std::string::npos) {
+                lay.ffn_sub_norm.assign(config_.hidden_dim, 1.0f);
+                if (ti.type == 0) {
+                    file.read(reinterpret_cast<char*>(lay.ffn_sub_norm.data()),
+                              std::min(lay.ffn_sub_norm.size() * sizeof(float), static_cast<size_t>(ti.dims[0] * sizeof(float))));
+                } else if (ti.type == 1) {
+                    std::vector<uint16_t> f16_buf(ti.dims[0]);
+                    file.read(reinterpret_cast<char*>(f16_buf.data()), f16_buf.size() * sizeof(uint16_t));
+                    for (size_t i = 0; i < std::min(f16_buf.size(), lay.ffn_sub_norm.size()); ++i) {
+                        lay.ffn_sub_norm[i] = bitnet_fp16_to_fp32(f16_buf[i]);
+                    }
+                }
+                continue;
+            }
 
             if (ti.name.find("attn_norm.weight") != std::string::npos) {
                 lay.attn_norm.assign(config_.dim, 1.0f);
@@ -446,7 +485,7 @@ void BitNetEngine::load_gguf_tensors(
                         byte_size = static_cast<size_t>(target_linear->in_features) * target_linear->out_features * sizeof(uint16_t);
                     } else if (ti.type == 7 || ti.type == 8) {
                         byte_size = static_cast<size_t>(target_linear->out_features) * (target_linear->in_features / 32) * 34;
-                    } else if (ti.type == 29 || ti.type == 30) {
+                    } else if (ti.type == 29 || ti.type == 30 || ti.type == 36 || ti.type == 37) {
                         // Microsoft I2_S format: (cols / 4) bytes per row + 32-byte tail
                         size_t packed_bytes = static_cast<size_t>(target_linear->out_features) * (target_linear->in_features / 4);
                         byte_size = packed_bytes + 32;
@@ -458,7 +497,7 @@ void BitNetEngine::load_gguf_tensors(
                     file.read(reinterpret_cast<char*>(target_linear->raw_data.data()), byte_size);
 
                     // If I2_S, extract scale from 32-byte tail
-                    if (ti.type == 29 || ti.type == 30) {
+                    if (ti.type == 29 || ti.type == 30 || ti.type == 36 || ti.type == 37) {
                         size_t packed_bytes = static_cast<size_t>(target_linear->out_features) * (target_linear->in_features / 4);
                         if (target_linear->raw_data.size() >= packed_bytes + 4) {
                             float tail_s = 0.0f;
@@ -550,7 +589,9 @@ bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
                 config_.hidden_dim = static_cast<int>(int_val);
             } else if (key.find("block_count") != std::string::npos) {
                 config_.n_layers = static_cast<int>(int_val);
-            } else if (key.find("head_count") != std::string::npos && key.find("head_count_kv") == std::string::npos) {
+            } else if (key.find("head_count_kv") != std::string::npos) {
+                config_.n_kv_heads = static_cast<int>(int_val);
+            } else if (key.find("head_count") != std::string::npos) {
                 config_.n_heads = static_cast<int>(int_val);
             } else if (key.find("context_length") != std::string::npos) {
                 config_.max_context = std::min(static_cast<int>(int_val), 4096);
@@ -640,8 +681,18 @@ bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
         config_.head_dim = 64;
     }
 
-    LOGI("GGUF BitNet Model configured: dim=%d, hidden_dim=%d, layers=%d, heads=%d, vocab=%d, bos=%d, eos=%d",
-         config_.dim, config_.hidden_dim, config_.n_layers, config_.n_heads, config_.vocab_size, bos_token_id_, eos_token_id_);
+    for (const auto& ti : tensor_infos) {
+        if (ti.name.find("attn_k.weight") != std::string::npos && ti.dims.size() >= 2 && config_.head_dim > 0) {
+            config_.n_kv_heads = static_cast<int>(ti.dims[1]) / config_.head_dim;
+        }
+    }
+
+    if (config_.n_kv_heads <= 0) {
+        config_.n_kv_heads = config_.n_heads;
+    }
+
+    LOGI("GGUF BitNet Model configured: dim=%d, hidden_dim=%d, layers=%d, heads=%d, kv_heads=%d, head_dim=%d, vocab=%d, bos=%d, eos=%d",
+         config_.dim, config_.hidden_dim, config_.n_layers, config_.n_heads, config_.n_kv_heads, config_.head_dim, config_.vocab_size, bos_token_id_, eos_token_id_);
 
     // Initialize layer structures and cache
     layers_.clear();
@@ -650,7 +701,8 @@ bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
     token_embedding_table_.assign(config_.vocab_size * config_.dim, 0.0f);
     final_norm_.assign(config_.dim, 1.0f);
 
-    int kv_size = config_.n_layers * config_.max_context * config_.dim;
+    int kv_dim = config_.n_kv_heads * config_.head_dim;
+    int kv_size = config_.n_layers * config_.max_context * kv_dim;
     k_cache_.assign(kv_size, 0.0f);
     v_cache_.assign(kv_size, 0.0f);
     kv_pos_ = 0;
@@ -907,35 +959,41 @@ void BitNetEngine::forward_token(int token, int pos, float* out_logits) {
         norm_buf = x;
         bitnet_rmsnorm(norm_buf.data(), lay.attn_norm.data(), dim, config_.norm_eps);
 
-        // Q, K, V Projections via BitNetLinear
-        std::vector<float> q(dim), k(dim), v(dim);
+        // Q, K, V Projections via BitNetLinear (k and v use kv_dim = n_kv_heads * head_dim)
+        const int kv_dim = config_.n_kv_heads * config_.head_dim;
+        std::vector<float> q(dim), k(kv_dim), v(kv_dim);
         lay.wq.matvec(norm_buf.data(), q.data(), config_.n_threads);
         lay.wk.matvec(norm_buf.data(), k.data(), config_.n_threads);
         lay.wv.matvec(norm_buf.data(), v.data(), config_.n_threads);
 
         // Apply Rotary Position Embeddings (RoPE) to Q and K
-        bitnet_rope(q.data(), k.data(), config_.n_heads, config_.head_dim, pos, config_.rope_theta);
+        bitnet_rope(q.data(), config_.n_heads, config_.head_dim, pos, config_.rope_theta);
+        bitnet_rope(k.data(), config_.n_kv_heads, config_.head_dim, pos, config_.rope_theta);
 
         // Store K, V in KV Cache
-        int cache_layer_offset = (l * config_.max_context + (pos % config_.max_context)) * dim;
-        for (int i = 0; i < dim; ++i) {
+        int cache_layer_offset = (l * config_.max_context + (pos % config_.max_context)) * kv_dim;
+        for (int i = 0; i < kv_dim; ++i) {
             k_cache_[cache_layer_offset + i] = k[i];
             v_cache_[cache_layer_offset + i] = v[i];
         }
 
-        // Multi-Head Causal Self-Attention over KV Cache
+        // Multi-Head / Grouped-Query Causal Self-Attention over KV Cache
         std::vector<float> attn_out(dim, 0.0f);
         float head_scale = 1.0f / std::sqrt(static_cast<float>(config_.head_dim));
         int past_len = std::min(pos + 1, config_.max_context);
+        int n_queries_per_kv = config_.n_heads / (config_.n_kv_heads > 0 ? config_.n_kv_heads : 1);
+        if (n_queries_per_kv < 1) n_queries_per_kv = 1;
 
         for (int h = 0; h < config_.n_heads; ++h) {
             int h_offset = h * config_.head_dim;
+            int kv_h = h / n_queries_per_kv;
+            int kv_h_offset = kv_h * config_.head_dim;
 
             std::vector<float> scores(past_len);
             float max_score = -1e9f;
 
             for (int t = 0; t < past_len; ++t) {
-                int k_tok_offset = (l * config_.max_context + (t % config_.max_context)) * dim + h_offset;
+                int k_tok_offset = (l * config_.max_context + (t % config_.max_context)) * kv_dim + kv_h_offset;
                 float dot = 0.0f;
                 for (int d = 0; d < config_.head_dim; ++d) {
                     dot += q[h_offset + d] * k_cache_[k_tok_offset + d];
@@ -957,12 +1015,17 @@ void BitNetEngine::forward_token(int token, int pos, float* out_logits) {
 
             // Weighted aggregation of Value vectors
             for (int t = 0; t < past_len; ++t) {
-                int v_tok_offset = (l * config_.max_context + (t % config_.max_context)) * dim + h_offset;
+                int v_tok_offset = (l * config_.max_context + (t % config_.max_context)) * kv_dim + kv_h_offset;
                 float weight = scores[t];
                 for (int d = 0; d < config_.head_dim; ++d) {
                     attn_out[h_offset + d] += weight * v_cache_[v_tok_offset + d];
                 }
             }
+        }
+
+        // Attention Sub-Norm if present
+        if (!lay.attn_sub_norm.empty()) {
+            bitnet_rmsnorm(attn_out.data(), lay.attn_sub_norm.data(), dim, config_.norm_eps);
         }
 
         // Attention Output Projection
@@ -985,6 +1048,11 @@ void BitNetEngine::forward_token(int token, int pos, float* out_logits) {
 
         // SwiGLU: SiLU(gate) * up
         bitnet_swiglu(gate.data(), up.data(), hidden_dim);
+
+        // FFN Sub-Norm if present
+        if (!lay.ffn_sub_norm.empty()) {
+            bitnet_rmsnorm(gate.data(), lay.ffn_sub_norm.data(), hidden_dim, config_.norm_eps);
+        }
 
         // Down projection
         std::vector<float> down(dim);
@@ -1093,6 +1161,9 @@ int BitNetEngine::sample_next_token(
     if (bos_token_id_ >= 0 && bos_token_id_ < vocab_size) {
         logits[bos_token_id_] = -1e9f;
     }
+    if (vocab_size > 128000) {
+        logits[128000] = -1e9f;
+    }
     if (vocab_size > 0) {
         logits[0] = -1e9f;
     }
@@ -1171,9 +1242,14 @@ int BitNetEngine::generate_stream(
     stop_requested_.store(false);
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // 1. Tokenize user prompt
+    // 1. Format and tokenize prompt using BitNet chat template
+    std::string formatted_prompt = prompt;
+    if (formatted_prompt.find("Human:") == std::string::npos && formatted_prompt.find("BITNETAssistant:") == std::string::npos) {
+        formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
+    }
+
     std::vector<int> prompt_tokens;
-    tokenize(prompt, prompt_tokens);
+    tokenize(formatted_prompt, prompt_tokens);
     if (prompt_tokens.empty()) {
         callback("", true);
         return 0;
@@ -1214,12 +1290,13 @@ int BitNetEngine::generate_stream(
         int next_token = sample_next_token(logits.data(), temperature, top_p, history, rep_penalty);
 
         // Check EOS condition
-        if (next_token == eos_token_id_ || next_token == 2) {
+        if (next_token == eos_token_id_ || next_token == 2 || next_token == 128001 || next_token == 128009) {
             break;
         }
 
         std::string tok_str = token_to_str(next_token);
-        if (tok_str == "</s>" || tok_str == "<|im_end|>" || tok_str == "<|endoftext|>" || tok_str == "<|end_of_text|>") {
+        if (tok_str == "</s>" || tok_str == "<|im_end|>" || tok_str == "<|endoftext|>" || tok_str == "<|end_of_text|>" ||
+            tok_str.find("Human:") != std::string::npos || tok_str.find("<|eot_id|>") != std::string::npos) {
             break;
         }
 
