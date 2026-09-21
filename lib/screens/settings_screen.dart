@@ -851,6 +851,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+        const SizedBox(height: 18),
+
+        // SECTION 2.5: Russian Polyglot Skill
+        _buildSectionHeader('Навык русского языка (Polyglot)', Icons.language, AppColors.secondary),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainer,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            children: [
+              // Russian Skill Switch
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: AppColors.secondaryContainer,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.translate, size: 18, color: AppColors.secondary),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text(
+                                      'Навык русского языка',
+                                      style: TextStyle(
+                                        fontFamily: AppTypography.sansFont,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.secondary.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'Active',
+                                        style: TextStyle(
+                                          fontFamily: AppTypography.monoFont,
+                                          fontSize: 9,
+                                          color: AppColors.secondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Text(
+                                  'Позволяет англоязычным моделям BitNet понимать запросы на русском и отвечать на русском',
+                                  style: TextStyle(
+                                    fontFamily: AppTypography.sansFont,
+                                    fontSize: 11,
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: s.russianSkillEnabled,
+                      onChanged: (v) {
+                        widget.state.updateSettings(s.copyWith(russianSkillEnabled: v));
+                      },
+                      activeColor: AppColors.secondary,
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              // Auto-Translate Output Switch
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.auto_stories, size: 18, color: AppColors.primary),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Автоперевод ответов в русский',
+                                  style: TextStyle(
+                                    fontFamily: AppTypography.sansFont,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.onSurface,
+                                  ),
+                                ),
+                                Text(
+                                  'Если модель генерирует ответ на английском, навык адаптирует его на чистый русский',
+                                  style: TextStyle(
+                                    fontFamily: AppTypography.sansFont,
+                                    fontSize: 11,
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: s.autoTranslateToRussian,
+                      onChanged: (v) {
+                        widget.state.updateSettings(s.copyWith(autoTranslateToRussian: v));
+                      },
+                      activeColor: AppColors.primary,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 18),
 

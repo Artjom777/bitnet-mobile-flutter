@@ -79,6 +79,25 @@ class StatusBanner extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (state.settings.russianSkillEnabled) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'RU Навык',
+                          style: TextStyle(
+                            fontFamily: AppTypography.monoFont,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

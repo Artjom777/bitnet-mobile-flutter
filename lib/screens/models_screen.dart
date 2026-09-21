@@ -838,6 +838,30 @@ class _ModelsScreenState extends State<ModelsScreen> {
             spacing: 6,
             runSpacing: 4,
             children: [
+              if (widget.state.settings.russianSkillEnabled)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.translate, size: 11, color: AppColors.secondary),
+                      SizedBox(width: 4),
+                      Text(
+                        'RU Навык',
+                        style: TextStyle(
+                          fontFamily: AppTypography.monoFont,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(

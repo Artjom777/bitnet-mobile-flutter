@@ -14,6 +14,8 @@ class InferenceSettings {
   final bool cpuFreqLock;
   final bool lowPowerMode;
   final bool backgroundExecution;
+  final bool russianSkillEnabled;
+  final bool autoTranslateToRussian;
 
   const InferenceSettings({
     this.cpuThreads = 4,
@@ -32,6 +34,8 @@ class InferenceSettings {
     this.cpuFreqLock = true,
     this.lowPowerMode = false,
     this.backgroundExecution = true,
+    this.russianSkillEnabled = true,
+    this.autoTranslateToRussian = true,
   });
 
   InferenceSettings copyWith({
@@ -50,6 +54,8 @@ class InferenceSettings {
     bool? cpuFreqLock,
     bool? lowPowerMode,
     bool? backgroundExecution,
+    bool? russianSkillEnabled,
+    bool? autoTranslateToRussian,
   }) {
     return InferenceSettings(
       cpuThreads: cpuThreads ?? this.cpuThreads,
@@ -67,6 +73,8 @@ class InferenceSettings {
       cpuFreqLock: cpuFreqLock ?? this.cpuFreqLock,
       lowPowerMode: lowPowerMode ?? this.lowPowerMode,
       backgroundExecution: backgroundExecution ?? this.backgroundExecution,
+      russianSkillEnabled: russianSkillEnabled ?? this.russianSkillEnabled,
+      autoTranslateToRussian: autoTranslateToRussian ?? this.autoTranslateToRussian,
     );
   }
 }

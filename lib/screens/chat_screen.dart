@@ -725,6 +725,47 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (msg.isTranslated || msg.originalText != null) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.translate, size: 12, color: AppColors.secondary),
+                          const SizedBox(width: 5),
+                          Text(
+                            msg.isTranslated ? 'Навык русского языка активен' : 'Оригинальный вывод модели',
+                            style: const TextStyle(
+                              fontFamily: AppTypography.monoFont,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                          if (msg.originalText != null) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => widget.state.toggleTranslation(msg.id),
+                              child: Text(
+                                msg.isTranslated ? 'Оригинал' : 'На русский',
+                                style: const TextStyle(
+                                  fontFamily: AppTypography.monoFont,
+                                  fontSize: 10,
+                                  color: AppColors.primary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                   if (!hasCodeBlock)
                     SelectableText(
                       msg.text.isEmpty && msg.isStreaming ? 'Генерация...' : msg.text,

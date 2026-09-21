@@ -1260,7 +1260,18 @@ int BitNetEngine::generate_stream(
     std::string formatted_prompt = prompt;
     bool is_microsoft_2b = (config_.arch == "bitnet-b1.58" && config_.n_layers >= 20);
     if (is_microsoft_2b && formatted_prompt.find("Human:") == std::string::npos && formatted_prompt.find("BITNETAssistant:") == std::string::npos) {
-        formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
+        bool has_cyrillic = false;
+        for (unsigned char c : prompt) {
+            if (c == 0xD0 || c == 0xD1) {
+                has_cyrillic = true;
+                break;
+            }
+        }
+        if (has_cyrillic) {
+            formatted_prompt = "Human: [System: You must understand and reply fluently in Russian language (Русский язык).]\n" + prompt + "\n\nBITNETAssistant: ";
+        } else {
+            formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
+        }
     }
 
     std::vector<int> prompt_tokens;

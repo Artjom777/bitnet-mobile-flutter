@@ -6,6 +6,7 @@ import '../models/chat_message.dart';
 import '../models/model_item.dart';
 import '../models/inference_settings.dart';
 import '../services/bitnet_ffi.dart';
+import '../services/russian_skill_service.dart';
 
 class BitNetState extends ChangeNotifier {
   int _currentTab = 0;
@@ -418,6 +419,26 @@ class BitNetState extends ChangeNotifier {
     _messages.add(asstMsg);
     notifyListeners();
 
+    final isRussianInput = RussianSkillService.instance.containsCyrillic(prompt);
+    final isModelEnglishCentric = !_activeModel.description.toLowerCase().contains('русск');
+    final useRussianSkill = _settings.russianSkillEnabled && isRussianInput;
+
+    final effectivePrompt = useRussianSkill
+        ? RussianSkillService.instance.formatRussianSkillPrompt(
+            userPrompt: prompt,
+            systemPrompt: _settings.systemPrompt,
+            isEnglishOnlyModel: isModelEnglishCentric,
+          )
+        : prompt;
+
+    if (useRussianSkill) {
+      _terminalLogs.add({
+        'tag': 'russian_skill',
+        'color': 'primary',
+        'text': 'активирован навык русского языка (полиглот-мост для модели ${_activeModel.name})',
+      });
+    }
+
     final backendName = _settings.deviceBackend.toUpperCase();
     _terminalLogs.add({
       'tag': 'bitnet_eval',
@@ -426,12 +447,12 @@ class BitNetState extends ChangeNotifier {
     });
 
     final stopwatch = Stopwatch()..start();
-    final buffer = StringBuffer();
+    final rawBuffer = StringBuffer();
     int tokenCount = 0;
 
     try {
       final tokenStream = BitNetFFI.instance.generateStream(
-        prompt,
+        effectivePrompt,
         maxTokens: _settings.maxTokens,
         temperature: _settings.temperature,
         topP: _settings.topP,
@@ -441,20 +462,33 @@ class BitNetState extends ChangeNotifier {
       await for (final rawToken in tokenStream) {
         if (!_isGenerating) break;
         final token = rawToken.replaceAll('\u2581', ' ').replaceAll('Ġ', ' ').replaceAll('Ċ', '\n');
-        buffer.write(token);
+        rawBuffer.write(token);
         tokenCount++;
+
+        final rawText = rawBuffer.toString();
+        String displayText = rawText;
+        bool isTranslated = false;
+
+        if (useRussianSkill &&
+            _settings.autoTranslateToRussian &&
+            RussianSkillService.instance.isPrimarilyEnglish(rawText)) {
+          displayText = RussianSkillService.instance.translateEnglishToRussian(rawText);
+          isTranslated = true;
+        }
 
         final idx = _messages.indexWhere((m) => m.id == asstId);
         if (idx != -1) {
           _messages[idx] = _messages[idx].copyWith(
-            text: buffer.toString(),
+            text: displayText,
             tokensCount: tokenCount,
+            isTranslated: isTranslated,
+            originalText: isTranslated ? rawText : null,
           );
           notifyListeners();
         }
       }
     } catch (e) {
-      buffer.write('\n[bitnet.cpp error: $e]');
+      rawBuffer.write('\n[bitnet.cpp error: $e]');
     } finally {
       _isGenerating = false;
       stopwatch.stop();
@@ -462,21 +496,47 @@ class BitNetState extends ChangeNotifier {
       final realSpeed = elapsedSec > 0 ? (tokenCount / elapsedSec) : 32.4;
       _liveTokSpeed = double.parse(realSpeed.toStringAsFixed(1));
 
+      final rawText = rawBuffer.toString();
+      String displayText = rawText;
+      bool isTranslated = false;
+
+      if (useRussianSkill &&
+          _settings.autoTranslateToRussian &&
+          RussianSkillService.instance.isPrimarilyEnglish(rawText)) {
+        displayText = RussianSkillService.instance.translateEnglishToRussian(rawText);
+        isTranslated = true;
+      }
+
       final idx = _messages.indexWhere((m) => m.id == asstId);
       if (idx != -1) {
         _messages[idx] = _messages[idx].copyWith(
-          text: buffer.toString(),
+          text: displayText,
           isStreaming: false,
           tokensCount: tokenCount,
           tokensPerSec: _liveTokSpeed,
+          isTranslated: isTranslated,
+          originalText: isTranslated ? rawText : null,
         );
       }
 
       _terminalLogs.add({
         'tag': 'bitnet_done',
         'color': 'secondary',
-        'text': 'sampled $tokenCount tokens @ ${_liveTokSpeed} t/s via ARM NEON',
+        'text': 'sampled $tokenCount tokens @ ${_liveTokSpeed} t/s via ARM NEON${isTranslated ? ' [RU Skill]' : ''}',
       });
+      notifyListeners();
+    }
+  }
+
+  void toggleTranslation(String messageId) {
+    final idx = _messages.indexWhere((m) => m.id == messageId);
+    if (idx != -1 && _messages[idx].originalText != null) {
+      final msg = _messages[idx];
+      _messages[idx] = msg.copyWith(
+        text: msg.originalText!,
+        originalText: msg.text,
+        isTranslated: !msg.isTranslated,
+      );
       notifyListeners();
     }
   }

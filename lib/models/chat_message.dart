@@ -10,6 +10,8 @@ class ChatMessage {
   final String? codeSnippet;
   final String? codeFilename;
   final bool isStreaming;
+  final bool isTranslated;
+  final String? originalText;
 
   ChatMessage({
     required this.id,
@@ -23,6 +25,8 @@ class ChatMessage {
     this.codeSnippet,
     this.codeFilename,
     this.isStreaming = false,
+    this.isTranslated = false,
+    this.originalText,
   });
 
   ChatMessage copyWith({
@@ -37,6 +41,8 @@ class ChatMessage {
     String? codeSnippet,
     String? codeFilename,
     bool? isStreaming,
+    bool? isTranslated,
+    String? originalText,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -50,6 +56,8 @@ class ChatMessage {
       codeSnippet: codeSnippet ?? this.codeSnippet,
       codeFilename: codeFilename ?? this.codeFilename,
       isStreaming: isStreaming ?? this.isStreaming,
+      isTranslated: isTranslated ?? this.isTranslated,
+      originalText: originalText ?? this.originalText,
     );
   }
 }
