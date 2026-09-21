@@ -473,30 +473,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildUserBubble(ChatMessage msg) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16, left: 48),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                color: AppColors.primaryContainer,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
-                  topRight: Radius.circular(4),
-                ),
-              ),
-              child: Text(
-                msg.text,
-                style: const TextStyle(
-                  fontFamily: AppTypography.sansFont,
-                  fontSize: 14,
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(

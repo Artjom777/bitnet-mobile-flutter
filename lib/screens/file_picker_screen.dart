@@ -326,9 +326,9 @@ class _FilePickerScreenState extends State<FilePickerScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.folder_open, size: 18, color: AppColors.secondary),
-                        SizedBox(width: 8),
+                      children: [
+                        const Icon(Icons.folder_open, size: 18, color: AppColors.secondary),
+                        const SizedBox(width: 8),
                         Text(
                           _storageProviders[_selectedStorageIndex]['path'] as String,
                           style: const TextStyle(
