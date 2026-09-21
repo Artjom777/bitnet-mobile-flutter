@@ -45,6 +45,13 @@ android {
             isShrinkResources = false
         }
     }
+
+    packaging {
+        jniLibs {
+            pickFirsts.add("**/libbitnet.so")
+            useLegacyPackaging = true
+        }
+    }
 }
 
 kotlin {
