@@ -906,6 +906,10 @@ std::string BitNetEngine::token_to_str(int token_id) {
                    static_cast<unsigned char>(text[i+1]) == 0xA0) {
             clean.push_back(' ');
             i += 2;
+        } else if (b0 == 0xC4 && i + 1 < text.size() &&
+                   static_cast<unsigned char>(text[i+1]) == 0x8A) {
+            clean.push_back('\n');
+            i += 2;
         } else {
             clean.push_back(text[i]);
             i++;
@@ -1144,17 +1148,11 @@ int BitNetEngine::sample_next_token(
     const int vocab_size = config_.vocab_size;
     if (vocab_size <= 0) return 0;
 
-    // Consecutive repetition block: prevent immediate repeating of the previous 1-2 tokens
-    if (!history.empty()) {
+    // Mild penalty on immediately previous token if rep_penalty > 1.0f
+    if (rep_penalty > 1.0f && !history.empty()) {
         int prev1 = history.back();
         if (prev1 >= 0 && prev1 < vocab_size) {
-            logits[prev1] -= 12.0f;
-        }
-        if (history.size() >= 2) {
-            int prev2 = history[history.size() - 2];
-            if (prev2 >= 0 && prev2 < vocab_size) {
-                logits[prev2] -= 6.0f;
-            }
+            logits[prev1] -= 1.5f;
         }
     }
 
@@ -1180,10 +1178,7 @@ int BitNetEngine::sample_next_token(
     if (bos_token_id_ >= 0 && bos_token_id_ < vocab_size) {
         logits[bos_token_id_] = -1e9f;
     }
-    if (vocab_size > 128000) {
-        logits[128000] = -1e9f;
-    }
-    if (vocab_size > 0) {
+    if (vocab_size > 0 && (vocab_[0] == "<unk>" || vocab_[0] == "<s>" || vocab_[0] == "<pad>")) {
         logits[0] = -1e9f;
     }
 
@@ -1302,6 +1297,7 @@ int BitNetEngine::generate_stream(
     std::vector<int> history = prompt_tokens;
     int generated_count = 0;
 
+    std::string utf8_pending;
     for (int step = 0; step < max_tokens; ++step) {
         if (stop_requested_.load()) {
             break;
@@ -1321,7 +1317,30 @@ int BitNetEngine::generate_stream(
         }
 
         if (!tok_str.empty()) {
-            callback(tok_str, false);
+            utf8_pending += tok_str;
+            size_t valid_len = 0;
+            size_t i = 0;
+            while (i < utf8_pending.size()) {
+                unsigned char c = static_cast<unsigned char>(utf8_pending[i]);
+                size_t char_len = 1;
+                if ((c & 0x80) == 0) char_len = 1;
+                else if ((c & 0xE0) == 0xC0) char_len = 2;
+                else if ((c & 0xF0) == 0xE0) char_len = 3;
+                else if ((c & 0xF8) == 0xF0) char_len = 4;
+
+                if (i + char_len <= utf8_pending.size()) {
+                    i += char_len;
+                    valid_len = i;
+                } else {
+                    break;
+                }
+            }
+
+            if (valid_len > 0) {
+                std::string send_chunk = utf8_pending.substr(0, valid_len);
+                utf8_pending.erase(0, valid_len);
+                callback(send_chunk, false);
+            }
         }
 
         history.push_back(next_token);
@@ -1333,6 +1352,11 @@ int BitNetEngine::generate_stream(
 
         // Forward next token to compute logits for the subsequent step
         forward_token(next_token, pos++, logits.data());
+    }
+
+    if (!utf8_pending.empty()) {
+        callback(utf8_pending, false);
+        utf8_pending.clear();
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();

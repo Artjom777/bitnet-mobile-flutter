@@ -438,8 +438,9 @@ class BitNetState extends ChangeNotifier {
         repPenalty: _settings.repetitionPenalty,
       );
 
-      await for (final token in tokenStream) {
+      await for (final rawToken in tokenStream) {
         if (!_isGenerating) break;
+        final token = rawToken.replaceAll('\u2581', ' ').replaceAll('Ġ', ' ').replaceAll('Ċ', '\n');
         buffer.write(token);
         tokenCount++;
 

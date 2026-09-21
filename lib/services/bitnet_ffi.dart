@@ -247,10 +247,12 @@ class BitNetFFI {
         if (_stopRequested || isDone == 1) {
           if (!controller.isClosed) controller.close();
         } else {
-          final str = pToken.toDartString();
-          if (str.isNotEmpty && !controller.isClosed) {
-            controller.add(str);
-          }
+          try {
+            final str = pToken.toDartString();
+            if (str.isNotEmpty && !controller.isClosed) {
+              controller.add(str);
+            }
+          } catch (_) {}
         }
       });
 
@@ -276,10 +278,12 @@ class BitNetFFI {
         if (_stopRequested || isDone == 1) {
           if (!controller.isClosed) controller.close();
         } else {
-          final str = pToken.toDartString();
-          if (str.isNotEmpty && !controller.isClosed) {
-            controller.add(str);
-          }
+          try {
+            final str = pToken.toDartString();
+            if (str.isNotEmpty && !controller.isClosed) {
+              controller.add(str);
+            }
+          } catch (_) {}
         }
       });
 
