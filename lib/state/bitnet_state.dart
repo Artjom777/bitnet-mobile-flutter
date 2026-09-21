@@ -466,23 +466,12 @@ class BitNetState extends ChangeNotifier {
         tokenCount++;
 
         final rawText = rawBuffer.toString();
-        String displayText = rawText;
-        bool isTranslated = false;
-
-        if (useRussianSkill &&
-            _settings.autoTranslateToRussian &&
-            RussianSkillService.instance.isPrimarilyEnglish(rawText)) {
-          displayText = RussianSkillService.instance.translateEnglishToRussian(rawText);
-          isTranslated = true;
-        }
 
         final idx = _messages.indexWhere((m) => m.id == asstId);
         if (idx != -1) {
           _messages[idx] = _messages[idx].copyWith(
-            text: displayText,
+            text: rawText,
             tokensCount: tokenCount,
-            isTranslated: isTranslated,
-            originalText: isTranslated ? rawText : null,
           );
           notifyListeners();
         }
@@ -497,48 +486,71 @@ class BitNetState extends ChangeNotifier {
       _liveTokSpeed = double.parse(realSpeed.toStringAsFixed(1));
 
       final rawText = rawBuffer.toString();
-      String displayText = rawText;
-      bool isTranslated = false;
-
-      if (useRussianSkill &&
-          _settings.autoTranslateToRussian &&
-          RussianSkillService.instance.isPrimarilyEnglish(rawText)) {
-        displayText = RussianSkillService.instance.translateEnglishToRussian(rawText);
-        isTranslated = true;
-      }
 
       final idx = _messages.indexWhere((m) => m.id == asstId);
       if (idx != -1) {
         _messages[idx] = _messages[idx].copyWith(
-          text: displayText,
+          text: rawText,
           isStreaming: false,
           tokensCount: tokenCount,
           tokensPerSec: _liveTokSpeed,
-          isTranslated: isTranslated,
-          originalText: isTranslated ? rawText : null,
         );
       }
 
       _terminalLogs.add({
         'tag': 'bitnet_done',
         'color': 'secondary',
-        'text': 'sampled $tokenCount tokens @ ${_liveTokSpeed} t/s via ARM NEON${isTranslated ? ' [RU Skill]' : ''}',
+        'text': 'sampled $tokenCount tokens @ ${_liveTokSpeed} t/s via ARM NEON',
       });
       notifyListeners();
+
+      // If Russian skill and auto-translation is enabled and output is English, translate asynchronously
+      if (useRussianSkill &&
+          _settings.autoTranslateToRussian &&
+          RussianSkillService.instance.isPrimarilyEnglish(rawText)) {
+        translateMessage(asstId);
+      }
+    }
+  }
+
+  Future<void> translateMessage(String messageId) async {
+    final idx = _messages.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+    final msg = _messages[idx];
+
+    // If currently translated, toggle back to original text
+    if (msg.isTranslated && msg.originalText != null) {
+      _messages[idx] = msg.copyWith(
+        text: msg.originalText!,
+        originalText: msg.text,
+        isTranslated: false,
+      );
+      notifyListeners();
+      return;
+    }
+
+    final textToTranslate = msg.originalText ?? msg.text;
+    final translated = await RussianSkillService.instance.translateToRussian(textToTranslate);
+    if (translated != null && translated.trim().isNotEmpty) {
+      final curIdx = _messages.indexWhere((m) => m.id == messageId);
+      if (curIdx != -1) {
+        _messages[curIdx] = _messages[curIdx].copyWith(
+          text: translated,
+          isTranslated: true,
+          originalText: textToTranslate,
+        );
+        _terminalLogs.add({
+          'tag': 'ru_translate',
+          'color': 'primary',
+          'text': 'ответ переведен на грамотный русский язык',
+        });
+        notifyListeners();
+      }
     }
   }
 
   void toggleTranslation(String messageId) {
-    final idx = _messages.indexWhere((m) => m.id == messageId);
-    if (idx != -1 && _messages[idx].originalText != null) {
-      final msg = _messages[idx];
-      _messages[idx] = msg.copyWith(
-        text: msg.originalText!,
-        originalText: msg.text,
-        isTranslated: !msg.isTranslated,
-      );
-      notifyListeners();
-    }
+    translateMessage(messageId);
   }
 
 

@@ -1167,9 +1167,22 @@ int BitNetEngine::sample_next_token(
             int tok = kv.first;
             int count = kv.second;
             if (tok >= 0 && tok < vocab_size) {
-                float penalty = std::pow(rep_penalty, count);
-                if (logits[tok] < 0.0f) logits[tok] *= penalty;
-                else logits[tok] /= penalty;
+                // Do not penalize single-byte fallback tokens (<0xXX>) or common whitespace.
+                // In multi-byte UTF-8 languages (like Russian Cyrillic), 0xD0 and 0xD1 prefixes
+                // repeat constantly; penalizing them suppresses Cyrillic generation.
+                bool is_exempt = false;
+                if (tok < static_cast<int>(vocab_.size())) {
+                    const std::string& v = vocab_[tok];
+                    if (v == "\n" || v == " " || v == "\xe2\x96\x81" || v == "\xc4\xa0" ||
+                        (v.size() == 6 && v.rfind("<0x", 0) == 0 && v.back() == '>')) {
+                        is_exempt = true;
+                    }
+                }
+                if (!is_exempt) {
+                    float penalty = std::pow(rep_penalty, count);
+                    if (logits[tok] < 0.0f) logits[tok] *= penalty;
+                    else logits[tok] /= penalty;
+                }
             }
         }
     }
@@ -1268,7 +1281,7 @@ int BitNetEngine::generate_stream(
             }
         }
         if (has_cyrillic) {
-            formatted_prompt = "Human: [System: You must understand and reply fluently in Russian language (Русский язык).]\n" + prompt + "\n\nBITNETAssistant: ";
+            formatted_prompt = "Human: [System: You are an intelligent multilingual AI assistant. Always reply directly in fluent Russian language (на русском языке).]\nПривет!\n\nBITNETAssistant: Здравствуйте! Чем я могу вам помочь?\n\nHuman: " + prompt + "\n\nBITNETAssistant: ";
         } else {
             formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
         }

@@ -1,4 +1,5 @@
-import 'dart:core';
+import 'dart:convert';
+import 'dart:io';
 
 class RussianSkillService {
   static final RussianSkillService instance = RussianSkillService._();
@@ -14,10 +15,11 @@ class RussianSkillService {
     if (text.isEmpty) return false;
     final cyrillicMatches = RegExp(r'[\u0400-\u04FF]').allMatches(text).length;
     final latinMatches = RegExp(r'[a-zA-Z]').allMatches(text).length;
-    return latinMatches > 0 && (latinMatches > cyrillicMatches * 2);
+    return latinMatches > 10 && (latinMatches > cyrillicMatches * 2);
   }
 
-  /// Format prompt for English-centric models when user inputs Russian
+  /// Format prompt for English-centric models using Few-Shot Priming
+  /// to naturally guide the model into responding in Russian.
   String formatRussianSkillPrompt({
     required String userPrompt,
     required String systemPrompt,
@@ -27,361 +29,166 @@ class RussianSkillService {
       return userPrompt;
     }
 
-    final enMeaning = translateRussianToEnglish(userPrompt);
-
-    return '[System: You are an intelligent multilingual AI assistant powered by BitNet 1.58b. '
-        'The user is speaking Russian. You must understand the question and formulate your response in fluent Russian (на русском языке).]\n\n'
-        'Human: Question in Russian: $userPrompt\n'
-        '(English context: $enMeaning)\n\n'
+    return 'Human: [System: You are an intelligent AI assistant. Always respond in fluent Russian (на русском языке). Всегда отвечай только на русском языке.]\n'
+        'Привет!\n\n'
+        'BITNETAssistant: Здравствуйте! Я локальный ИИ BitNet. Чем я могу помочь вам сегодня?\n\n'
+        'Human: $userPrompt\n\n'
         'BITNETAssistant: ';
   }
 
-  /// Fast bidirectional Russian -> English translation for prompt grounding
-  String translateRussianToEnglish(String text) {
-    String out = text;
-    for (final entry in _ruToEnPhrases.entries) {
-      out = out.replaceAll(RegExp(entry.key, caseSensitive: false), entry.value);
+  /// Quality translation to Russian with code block preservation
+  /// Returns null if offline or translation fails (preserving clean original text)
+  Future<String?> translateToRussian(String text) async {
+    if (text.trim().isEmpty || !isPrimarilyEnglish(text)) {
+      return null;
     }
-    return out;
+    return _translateText(text, sourceLang: 'en', targetLang: 'ru');
   }
 
-  /// Fast offline English -> Russian translator for model responses
-  String translateEnglishToRussian(String text) {
-    if (!isPrimarilyEnglish(text)) {
-      return text;
+  /// Quality translation to English with code block preservation
+  Future<String?> translateToEnglish(String text) async {
+    if (text.trim().isEmpty || !containsCyrillic(text)) {
+      return null;
     }
+    return _translateText(text, sourceLang: 'ru', targetLang: 'en');
+  }
 
-    // Preserve code blocks
+  /// Core translation routine with chunking and fallback
+  Future<String?> _translateText(
+    String text, {
+    required String sourceLang,
+    required String targetLang,
+  }) async {
+    // 1. Preserve markdown code blocks and inline code
     final codeBlocks = <String>[];
-    String textWithoutCode = text.replaceAllMapped(RegExp(r'```[\s\S]*?```|`[^`]+`'), (match) {
-      final placeholder = '__CODE_BLOCK_${codeBlocks.length}__';
-      codeBlocks.add(match.group(0)!);
-      return placeholder;
-    });
+    final textWithoutCode = text.replaceAllMapped(
+      RegExp(r'```[\s\S]*?```|`[^`\n]+`'),
+      (match) {
+        final placeholder = '__CODE_BLOCK_${codeBlocks.length}__';
+        codeBlocks.add(match.group(0)!);
+        return placeholder;
+      },
+    );
 
-    // 1. Phrase-level translation
-    for (final entry in _enToRuPhrases.entries) {
-      textWithoutCode = textWithoutCode.replaceAllMapped(
-        RegExp(r'\b' + RegExp.escape(entry.key) + r'\b', caseSensitive: false),
-        (m) {
-          final matched = m.group(0)!;
-          if (matched.isNotEmpty && matched[0] == matched[0].toUpperCase()) {
-            return _capitalize(entry.value);
-          }
-          return entry.value;
-        },
-      );
-    }
+    // 2. Break down into paragraphs and sentence chunks (<400 chars)
+    final paragraphs = textWithoutCode.split('\n');
+    final translatedParagraphs = <String>[];
 
-    // 2. Word-level translation with case preservation
-    final words = textWithoutCode.split(RegExp(r'(\s+|[.,!?;:()\[\]"«»\n])'));
-    final delimiters = RegExp(r'(\s+|[.,!?;:()\[\]"«»\n])').allMatches(textWithoutCode).map((m) => m.group(0)!).toList();
+    for (final para in paragraphs) {
+      if (para.trim().isEmpty) {
+        translatedParagraphs.add('');
+        continue;
+      }
 
-    final buffer = StringBuffer();
-    int dIndex = 0;
+      final sentences = para.split(RegExp(r'(?<=[.!?])\s+'));
+      final chunks = <String>[];
+      var currentChunk = '';
 
-    for (int i = 0; i < words.length; i++) {
-      final w = words[i];
-      if (w.isNotEmpty) {
-        final lower = w.toLowerCase();
-        String translated = _enToRuWords[lower] ?? w;
-
-        if (w == w.toUpperCase() && w.length > 1) {
-          translated = translated.toUpperCase();
-        } else if (w[0] == w[0].toUpperCase()) {
-          translated = _capitalize(translated);
+      for (final s in sentences) {
+        if (currentChunk.isEmpty) {
+          currentChunk = s;
+        } else if (currentChunk.length + s.length + 1 < 380) {
+          currentChunk += ' $s';
+        } else {
+          chunks.add(currentChunk);
+          currentChunk = s;
         }
+      }
+      if (currentChunk.isNotEmpty) {
+        chunks.add(currentChunk);
+      }
 
-        buffer.write(translated);
+      final translatedChunks = <String>[];
+      for (final chunk in chunks) {
+        final translatedChunk = await _translateChunk(
+          chunk,
+          sourceLang: sourceLang,
+          targetLang: targetLang,
+        );
+        translatedChunks.add(translatedChunk ?? chunk);
       }
-      if (dIndex < delimiters.length) {
-        buffer.write(delimiters[dIndex++]);
-      }
+      translatedParagraphs.add(translatedChunks.join(' '));
     }
 
-    String result = buffer.toString();
+    var result = translatedParagraphs.join('\n');
 
-    // Restore code blocks
+    // 3. Restore preserved code blocks
     for (int i = 0; i < codeBlocks.length; i++) {
       result = result.replaceAll('__CODE_BLOCK_${i}__', codeBlocks[i]);
+    }
+
+    if (result.trim() == text.trim()) {
+      return null;
     }
 
     return result;
   }
 
-  String _capitalize(String s) {
-    if (s.isEmpty) return s;
-    return s[0].toUpperCase() + s.substring(1);
+  /// Translate a single text chunk (<400 chars) using MyMemory with fallback to Google Translate
+  Future<String?> _translateChunk(
+    String chunk, {
+    required String sourceLang,
+    required String targetLang,
+  }) async {
+    final trimmed = chunk.trim();
+    if (trimmed.isEmpty) return chunk;
+
+    // Try MyMemory API first
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+      final uri = Uri.parse(
+        'https://api.mymemory.translated.net/get?q=${Uri.encodeComponent(trimmed)}&langpair=$sourceLang|$targetLang',
+      );
+      final request = await client.getUrl(uri);
+      request.headers.set(HttpHeaders.userAgentHeader, 'BitNetMobile/1.0');
+      final response = await request.close().timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final json = jsonDecode(body);
+        if (json is Map && json['responseData'] is Map) {
+          final translated = json['responseData']['translatedText'];
+          if (translated is String &&
+              translated.isNotEmpty &&
+              !translated.startsWith('MYMEMORY WARNING:')) {
+            client.close();
+            return translated;
+          }
+        }
+      }
+      client.close();
+    } catch (_) {}
+
+    // Fallback: Google Translate public single endpoint
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+      final uri = Uri.parse(
+        'https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sourceLang&tl=$targetLang&dt=t&q=${Uri.encodeComponent(trimmed)}',
+      );
+      final request = await client.getUrl(uri);
+      request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Linux; Android 14)');
+      final response = await request.close().timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final json = jsonDecode(body);
+        if (json is List && json.isNotEmpty && json[0] is List) {
+          final sb = StringBuffer();
+          for (final item in json[0]) {
+            if (item is List && item.isNotEmpty && item[0] is String) {
+              sb.write(item[0]);
+            }
+          }
+          final res = sb.toString();
+          client.close();
+          if (res.isNotEmpty) return res;
+        }
+      }
+      client.close();
+    } catch (_) {}
+
+    return null;
   }
-
-  // Common phrase pairs
-  static final Map<String, String> _ruToEnPhrases = {
-    r'привет': 'hello',
-    r'здравствуй(те)?': 'hello',
-    r'кто ты\??': 'who are you?',
-    r'что ты умеешь\??': 'what can you do?',
-    r'как ты работаешь\??': 'how do you work?',
-    r'что такое bitnet\??': 'what is bitnet?',
-    r'что такое квантование\??': 'what is quantization?',
-    r'напиши код': 'write code',
-    r'напиши пример': 'write an example',
-    r'объясни': 'explain',
-    r'расскажи о': 'tell about',
-    r'помоги мне': 'help me',
-    r'почему': 'why',
-    r'зачем': 'why',
-    r'как': 'how',
-    r'когда': 'when',
-    r'где': 'where',
-    r'сколько': 'how much',
-  };
-
-  static final Map<String, String> _enToRuPhrases = {
-    'i am a local ai assistant': 'я — локальный ИИ-ассистент',
-    'i am an ai assistant': 'я — ИИ-ассистент',
-    'i am an artificial intelligence': 'я — искусственный интеллект',
-    'i am bitnet': 'я — BitNet',
-    'based on the bitnet architecture': 'на базе архитектуры BitNet',
-    'based on bitnet': 'на базе BitNet',
-    'how can i help you today': 'чем я могу помочь вам сегодня',
-    'how can i help you': 'чем я могу вам помочь',
-    'how can i assist you': 'чем я могу вам помочь',
-    'here is an example': 'вот пример',
-    'here is the code': 'вот код',
-    'here is a summary': 'вот краткое резюме',
-    'for example': 'например',
-    'in other words': 'другими словами',
-    'first of all': 'прежде всего',
-    'in summary': 'в заключение',
-    'as a result': 'в результате',
-    'it is important to note': 'важно отметить',
-    'neural network': 'нейронная сеть',
-    'neural networks': 'нейронные сети',
-    'artificial intelligence': 'искусственный интеллект',
-    'machine learning': 'машинное обучение',
-    'deep learning': 'глубокое обучение',
-    'ternary weights': 'троичные веса',
-    'ternary quantization': 'троичное квантование',
-    '1.58-bit quantization': '1.58-битное квантование',
-    '1.58-bit ternary': '1.58-битные троичные веса',
-    'without internet access': 'без доступа в интернет',
-    'local inference': 'локальный инференс',
-    'on-device ai': 'локальный ИИ на устройстве',
-    'matrix multiplication': 'матричное умножение',
-    'arm neon acceleration': 'ускорение ARM NEON',
-    'vector instructions': 'векторные инструкции',
-    'low memory footprint': 'низкое потребление памяти',
-    'fast response': 'быстрый ответ',
-    'high performance': 'высокая производительность',
-    'feel free to ask': 'вы можете задать любой вопрос',
-    'let me know if': 'дайте знать, если',
-    'thank you for': 'спасибо за',
-    'you are welcome': 'пожалуйста',
-    'of course': 'конечно',
-    'no problem': 'без проблем',
-  };
-
-  static final Map<String, String> _enToRuWords = {
-    // Pronouns
-    'i': 'я',
-    'me': 'меня',
-    'my': 'мой',
-    'mine': 'моё',
-    'you': 'вы',
-    'your': 'ваш',
-    'yours': 'ваше',
-    'he': 'он',
-    'him': 'его',
-    'his': 'его',
-    'she': 'она',
-    'her': 'её',
-    'it': 'это',
-    'its': 'его',
-    'we': 'мы',
-    'us': 'нас',
-    'our': 'наш',
-    'ours': 'наше',
-    'they': 'они',
-    'them': 'их',
-    'their': 'их',
-    'theirs': 'их',
-
-    // Auxiliaries & Verbs
-    'is': '—',
-    'are': '—',
-    'am': '—',
-    'was': 'был',
-    'were': 'были',
-    'be': 'быть',
-    'been': 'был',
-    'being': 'будучи',
-    'can': 'может',
-    'could': 'мог бы',
-    'will': 'будет',
-    'would': 'бы',
-    'should': 'следует',
-    'must': 'должен',
-    'have': 'имеет',
-    'has': 'имеет',
-    'had': 'имел',
-    'do': 'делает',
-    'does': 'делает',
-    'did': 'сделал',
-    'use': 'использует',
-    'uses': 'использует',
-    'used': 'использовал',
-    'using': 'используя',
-    'make': 'создает',
-    'work': 'работает',
-    'works': 'работает',
-    'working': 'работает',
-    'help': 'помогает',
-    'helps': 'помогает',
-    'run': 'запускает',
-    'runs': 'запускает',
-    'running': 'работает',
-    'execute': 'выполняет',
-    'executing': 'выполняя',
-    'need': 'требует',
-    'needs': 'требует',
-    'provide': 'предоставляет',
-    'provides': 'предоставляет',
-    'support': 'поддерживает',
-    'supports': 'поддерживает',
-    'generate': 'генерирует',
-    'generates': 'генерирует',
-    'generating': 'генерация',
-    'compute': 'вычисляет',
-    'process': 'обрабатывает',
-    'know': 'знает',
-    'think': 'думает',
-    'see': 'видит',
-    'look': 'смотрит',
-    'learn': 'обучается',
-    'show': 'показывает',
-    'explain': 'объясняет',
-
-    // Question words & Conjunctions
-    'what': 'что',
-    'which': 'какой',
-    'who': 'кто',
-    'whom': 'кого',
-    'whose': 'чей',
-    'where': 'где',
-    'when': 'когда',
-    'why': 'почему',
-    'how': 'как',
-    'and': 'и',
-    'or': 'или',
-    'but': 'но',
-    'because': 'потому что',
-    'if': 'если',
-    'then': 'тогда',
-    'else': 'иначе',
-    'so': 'так',
-    'as': 'как',
-    'than': 'чем',
-    'that': 'что',
-    'this': 'этот',
-    'these': 'эти',
-    'those': 'те',
-
-    // Prepositions
-    'in': 'в',
-    'on': 'на',
-    'at': 'в',
-    'to': 'к',
-    'from': 'из',
-    'by': 'с помощью',
-    'with': 'с',
-    'without': 'без',
-    'for': 'для',
-    'about': 'о',
-    'into': 'в',
-    'through': 'через',
-    'during': 'во время',
-    'between': 'между',
-    'under': 'под',
-    'over': 'над',
-
-    // Adjectives & Adverbs
-    'good': 'хороший',
-    'great': 'отличный',
-    'fast': 'быстрый',
-    'faster': 'быстрее',
-    'slow': 'медленный',
-    'high': 'высокий',
-    'low': 'низкий',
-    'small': 'маленький',
-    'large': 'большой',
-    'simple': 'простой',
-    'complex': 'сложный',
-    'new': 'новый',
-    'old': 'старый',
-    'first': 'первый',
-    'second': 'второй',
-    'third': 'третий',
-    'local': 'локальный',
-    'efficient': 'эффективный',
-    'accurate': 'точный',
-    'powerful': 'мощный',
-    'best': 'лучший',
-    'more': 'больше',
-    'less': 'меньше',
-    'most': 'наиболее',
-    'very': 'очень',
-    'also': 'также',
-    'only': 'только',
-    'always': 'всегда',
-    'never': 'никогда',
-    'now': 'сейчас',
-    'here': 'здесь',
-    'there': 'там',
-    'all': 'все',
-    'any': 'любой',
-    'some': 'некоторые',
-    'many': 'многие',
-    'much': 'много',
-    'few': 'мало',
-    'each': 'каждый',
-    'every': 'каждый',
-
-    // Tech & BitNet domain terms
-    'model': 'модель',
-    'models': 'модели',
-    'weight': 'вес',
-    'weights': 'веса',
-    'quantization': 'квантование',
-    'quantized': 'квантованный',
-    'layer': 'слой',
-    'layers': 'слои',
-    'memory': 'память',
-    'ram': 'ОЗУ',
-    'cpu': 'процессор',
-    'gpu': 'видеочип',
-    'npu': 'нейропроцессор',
-    'token': 'токен',
-    'tokens': 'токенов',
-    'speed': 'скорость',
-    'thread': 'поток',
-    'threads': 'потоков',
-    'context': 'контекст',
-    'cache': 'кэш',
-    'parameter': 'параметр',
-    'parameters': 'параметров',
-    'architecture': 'архитектура',
-    'device': 'устройство',
-    'system': 'система',
-    'file': 'файл',
-    'data': 'данные',
-    'code': 'код',
-    'result': 'результат',
-    'answer': 'ответ',
-    'question': 'вопрос',
-    'example': 'пример',
-    'yes': 'да',
-    'no': 'нет',
-    'true': 'истина',
-    'false': 'ложь',
-  };
 }

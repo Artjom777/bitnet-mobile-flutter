@@ -7,6 +7,7 @@ import '../models/chat_message.dart';
 import '../state/bitnet_state.dart';
 import '../widgets/status_banner.dart';
 import '../widgets/code_block_view.dart';
+import '../services/russian_skill_service.dart';
 import 'file_picker_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -739,7 +740,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           const Icon(Icons.translate, size: 12, color: AppColors.secondary),
                           const SizedBox(width: 5),
                           Text(
-                            msg.isTranslated ? 'Навык русского языка активен' : 'Оригинальный вывод модели',
+                            msg.isTranslated ? 'Переведено на русский' : 'Оригинал (English)',
                             style: const TextStyle(
                               fontFamily: AppTypography.monoFont,
                               fontSize: 10,
@@ -752,16 +753,58 @@ class _ChatScreenState extends State<ChatScreen> {
                             InkWell(
                               onTap: () => widget.state.toggleTranslation(msg.id),
                               child: Text(
-                                msg.isTranslated ? 'Оригинал' : 'На русский',
+                                msg.isTranslated ? 'Показать оригинал' : 'Перевести на русский',
                                 style: const TextStyle(
                                   fontFamily: AppTypography.monoFont,
                                   fontSize: 10,
                                   color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
                                   decoration: TextDecoration.underline,
                                 ),
                               ),
                             ),
                           ],
+                        ],
+                      ),
+                    ),
+                  ] else if (!msg.isUser &&
+                      !msg.isStreaming &&
+                      RussianSkillService.instance.isPrimarilyEnglish(msg.text)) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.outline.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.language, size: 12, color: AppColors.onSurfaceVariant),
+                          const SizedBox(width: 5),
+                          const Text(
+                            'Ответ на английском',
+                            style: TextStyle(
+                              fontFamily: AppTypography.monoFont,
+                              fontSize: 10,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () => widget.state.translateMessage(msg.id),
+                            child: const Text(
+                              'Перевести на русский',
+                              style: TextStyle(
+                                fontFamily: AppTypography.monoFont,
+                                fontSize: 10,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
