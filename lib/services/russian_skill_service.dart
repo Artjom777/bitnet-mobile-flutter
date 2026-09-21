@@ -25,11 +25,7 @@ class RussianSkillService {
     required String systemPrompt,
     required bool isEnglishOnlyModel,
   }) {
-    if (!containsCyrillic(userPrompt)) {
-      return userPrompt;
-    }
-
-    return 'Human: [System: You are an intelligent AI assistant. Always respond in fluent Russian (на русском языке). Всегда отвечай только на русском языке.]\n'
+    return 'Human: [System: You are an intelligent multilingual AI assistant. Always respond to the user in fluent, natural Russian language (на русском языке).]\n'
         'Привет!\n\n'
         'BITNETAssistant: Здравствуйте! Я локальный ИИ BitNet. Чем я могу помочь вам сегодня?\n\n'
         'Human: $userPrompt\n\n'

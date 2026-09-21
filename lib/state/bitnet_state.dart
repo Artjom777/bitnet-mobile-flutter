@@ -421,7 +421,7 @@ class BitNetState extends ChangeNotifier {
 
     final isRussianInput = RussianSkillService.instance.containsCyrillic(prompt);
     final isModelEnglishCentric = !_activeModel.description.toLowerCase().contains('русск');
-    final useRussianSkill = _settings.russianSkillEnabled && isRussianInput;
+    final useRussianSkill = _settings.russianSkillEnabled;
 
     final effectivePrompt = useRussianSkill
         ? RussianSkillService.instance.formatRussianSkillPrompt(

@@ -92,6 +92,7 @@ public:
     bool load_model(const std::string& filepath);
     void unload_model();
     bool is_loaded() const { return model_loaded_; }
+    bool is_gguf_loaded() const { return is_gguf_loaded_; }
 
     int tokenize(const std::string& text, std::vector<int>& tokens);
     std::string token_to_str(int token_id);
@@ -149,6 +150,7 @@ private:
     bool has_lm_head_ = false;
     int bos_token_id_ = 1;
     int eos_token_id_ = 2;
+    bool is_gguf_loaded_ = false;
 
     std::vector<std::string> vocab_;
     std::unordered_map<std::string, int> token_to_id_;
