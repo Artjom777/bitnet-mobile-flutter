@@ -25,6 +25,7 @@ struct BitNetConfig {
     float rope_theta = 500000.0f;
     std::string model_name = "BitNet-b1.58-2B-4T";
     std::string arch = "BitNet 1.58b Ternary";
+    std::string tokenizer_model = "llama";
 };
 
 struct BitNetTelemetry {

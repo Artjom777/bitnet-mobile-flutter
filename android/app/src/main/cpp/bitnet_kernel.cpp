@@ -365,8 +365,9 @@ void bitnet_gemm_i2_s(
             int32_t accumulator = 0;
 
 #if defined(__aarch64__) && defined(__ARM_NEON)
+            static const int8_t lut_bytes[16] = {0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            const int8x16_t lut = vld1q_s8(lut_bytes);
             const uint8x16_t mask = vdupq_n_u8(0x03);
-            const int8x16_t ones = vdupq_n_s8(1);
             int32x4_t total_acc = vdupq_n_s32(0);
 
             for (int blk = 0; blk < blocks_per_row; ++blk) {
@@ -383,11 +384,11 @@ void bitnet_gemm_i2_s(
                     const int h_off = half * 16;
                     uint8x16_t b = vld1q_u8(blk_ptr + h_off);
 
-                    // Decode ternary weights: c: 0->-1, 1->0, 2->+1 via (c - 1)
-                    int8x16_t w0 = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(vshrq_n_u8(b, 6), mask)), ones);
-                    int8x16_t w1 = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(vshrq_n_u8(b, 4), mask)), ones);
-                    int8x16_t w2 = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(vshrq_n_u8(b, 2), mask)), ones);
-                    int8x16_t w3 = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(b, mask)), ones);
+                    // Decode ternary weights: 00b=0, 01b=+1, 10b=-1, 11b=0
+                    int8x16_t w0 = vqtbl1q_s8(lut, vandq_u8(vshrq_n_u8(b, 6), mask));
+                    int8x16_t w1 = vqtbl1q_s8(lut, vandq_u8(vshrq_n_u8(b, 4), mask));
+                    int8x16_t w2 = vqtbl1q_s8(lut, vandq_u8(vshrq_n_u8(b, 2), mask));
+                    int8x16_t w3 = vqtbl1q_s8(lut, vandq_u8(b, mask));
 
                     int8x16_t a0 = vld1q_s8(act0 + h_off);
                     int8x16_t a1 = vld1q_s8(act1 + h_off);
@@ -410,6 +411,7 @@ void bitnet_gemm_i2_s(
             accumulator = vgetq_lane_s32(total_acc, 0) + vgetq_lane_s32(total_acc, 1) +
                           vgetq_lane_s32(total_acc, 2) + vgetq_lane_s32(total_acc, 3);
 #else
+            static const int8_t i2_s_lut[4] = {0, 1, -1, 0};
             for (int blk = 0; blk < blocks_per_row; ++blk) {
                 const uint8_t* blk_ptr = row_bytes + blk * 32;
                 const int8_t* act_blk = activations + blk * 128;
@@ -421,12 +423,12 @@ void bitnet_gemm_i2_s(
 
                 for (int gp = 0; gp < 32; ++gp) {
                     uint8_t byte = blk_ptr[gp];
-                    if (byte == 0x55) continue; // All zero (code 1: 0b01010101)
+                    if (byte == 0) continue; // All zero (00000000b)
 
-                    int w0 = static_cast<int>((byte >> 6) & 3) - 1;
-                    int w1 = static_cast<int>((byte >> 4) & 3) - 1;
-                    int w2 = static_cast<int>((byte >> 2) & 3) - 1;
-                    int w3 = static_cast<int>(byte & 3) - 1;
+                    int w0 = i2_s_lut[(byte >> 6) & 3];
+                    int w1 = i2_s_lut[(byte >> 4) & 3];
+                    int w2 = i2_s_lut[(byte >> 2) & 3];
+                    int w3 = i2_s_lut[byte & 3];
 
                     accumulator += act0[gp] * w0 + act1[gp] * w1 + act2[gp] * w2 + act3[gp] * w3;
                 }

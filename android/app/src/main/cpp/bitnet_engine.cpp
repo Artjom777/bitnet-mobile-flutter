@@ -454,21 +454,30 @@ void BitNetEngine::load_gguf_tensors(
             }
 
             BitNetLinear* target_linear = nullptr;
-            if (ti.name.find("attn_q.weight") != std::string::npos) target_linear = &lay.wq;
-            else if (ti.name.find("attn_k.weight") != std::string::npos) target_linear = &lay.wk;
-            else if (ti.name.find("attn_v.weight") != std::string::npos) target_linear = &lay.wv;
-            else if (ti.name.find("attn_output.weight") != std::string::npos) target_linear = &lay.wo;
-            else if (ti.name.find("ffn_gate.weight") != std::string::npos) target_linear = &lay.w_gate;
-            else if (ti.name.find("ffn_up.weight") != std::string::npos) target_linear = &lay.w_up;
-            else if (ti.name.find("ffn_down.weight") != std::string::npos) target_linear = &lay.w_down;
+            bool is_scale = (ti.name.find(".scale") != std::string::npos || ti.name.find("_scale") != std::string::npos);
+
+            if (ti.name.find("attn_q.") != std::string::npos) target_linear = &lay.wq;
+            else if (ti.name.find("attn_k.") != std::string::npos) target_linear = &lay.wk;
+            else if (ti.name.find("attn_v.") != std::string::npos) target_linear = &lay.wv;
+            else if (ti.name.find("attn_output.") != std::string::npos || ti.name.find("attn_out.") != std::string::npos) target_linear = &lay.wo;
+            else if (ti.name.find("ffn_gate.") != std::string::npos) target_linear = &lay.w_gate;
+            else if (ti.name.find("ffn_up.") != std::string::npos) target_linear = &lay.w_up;
+            else if (ti.name.find("ffn_down.") != std::string::npos) target_linear = &lay.w_down;
 
             if (target_linear != nullptr) {
-                // Check if this is a dedicated scale tensor (*_scale)
-                if (ti.name.rfind("_scale") != std::string::npos && ti.type == 0) {
+                // Check if this is a dedicated scale tensor (*.scale or *_scale)
+                if (is_scale) {
                     float s = 0.0f;
-                    file.read(reinterpret_cast<char*>(&s), sizeof(float));
+                    if (ti.type == 0) {
+                        file.read(reinterpret_cast<char*>(&s), sizeof(float));
+                    } else if (ti.type == 1) {
+                        uint16_t s16 = 0;
+                        file.read(reinterpret_cast<char*>(&s16), sizeof(uint16_t));
+                        s = bitnet_fp16_to_fp32(s16);
+                    }
                     if (s > 1e-6f && s < 10.0f) {
                         target_linear->scale = s;
+                        LOGI("Loaded dedicated scale for %s: %f", ti.name.c_str(), s);
                     }
                     continue;
                 }
@@ -567,6 +576,9 @@ bool BitNetEngine::parse_gguf_file(const std::string& filepath) {
                 config_.arch = val;
             } else if (key == "general.name") {
                 config_.model_name = val;
+            } else if (key == "tokenizer.ggml.model") {
+                config_.tokenizer_model = val;
+                LOGI("GGUF tokenizer model detected: %s", val.c_str());
             }
         } else if (val_type == 0 || val_type == 1 || val_type == 7 ||
                    val_type == 2 || val_type == 3 ||
@@ -764,13 +776,13 @@ int BitNetEngine::tokenize(const std::string& text, std::vector<int>& tokens) {
     const std::string sp_space = "\xe2\x96\x81";
     const std::string bpe_space = "\xc4\xa0"; // 'Ġ'
 
-    bool use_sp = (token_to_id_.find(sp_space) != token_to_id_.end());
-    bool use_bpe = (token_to_id_.find(bpe_space) != token_to_id_.end());
+    bool is_gpt2_bpe = (config_.tokenizer_model == "gpt2");
+    bool use_sp = (!is_gpt2_bpe && (token_to_id_.find(sp_space) != token_to_id_.end() || config_.tokenizer_model == "llama"));
 
     std::string norm_text;
     norm_text.reserve(text.size() * 3);
 
-    if (use_bpe) {
+    if (is_gpt2_bpe) {
         // Prepend BPE space if prompt doesn't start with whitespace
         if (!text.empty() && text[0] != ' ' && text[0] != '\n') {
             norm_text += bpe_space;
@@ -838,7 +850,7 @@ std::string BitNetEngine::token_to_str(int token_id) {
     // Control tokens
     if (raw == "<s>" || raw == "</s>" || raw == "<unk>" || raw == "<pad>" ||
         raw == "<|im_start|>" || raw == "<|im_end|>" || raw == "<|endoftext|>" || raw == "<|end_of_text|>" ||
-        raw == "<|extra_0|>" || raw == "<|extra_1|>") {
+        raw == "<|extra_0|>" || raw == "<|extra_1|>" || raw == "<|eot_id|>") {
         return "";
     }
 
@@ -850,19 +862,16 @@ std::string BitNetEngine::token_to_str(int token_id) {
         }
     }
 
-    // Check if token uses GPT-2 Byte-Level BPE
-    bool has_bpe = (token_to_id_.find("\xc4\xa0") != token_to_id_.end());
-    if (has_bpe) {
-        std::string out_bytes;
-        out_bytes.reserve(raw.size());
+    bool is_gpt2_bpe = (config_.tokenizer_model == "gpt2");
+    std::string text;
+    if (is_gpt2_bpe) {
         for (size_t i = 0; i < raw.size(); ) {
-            // Try matching 2-byte or 1-byte BPE characters
             bool found_byte = false;
             if (i + 1 < raw.size()) {
                 std::string sub2 = raw.substr(i, 2);
                 auto it = s_bpe_to_byte.find(sub2);
                 if (it != s_bpe_to_byte.end()) {
-                    out_bytes.push_back(static_cast<char>(it->second));
+                    text.push_back(static_cast<char>(it->second));
                     i += 2;
                     found_byte = true;
                 }
@@ -871,33 +880,38 @@ std::string BitNetEngine::token_to_str(int token_id) {
                 std::string sub1 = raw.substr(i, 1);
                 auto it = s_bpe_to_byte.find(sub1);
                 if (it != s_bpe_to_byte.end()) {
-                    out_bytes.push_back(static_cast<char>(it->second));
+                    text.push_back(static_cast<char>(it->second));
                     i += 1;
                 } else {
-                    out_bytes.push_back(raw[i]);
+                    text.push_back(raw[i]);
                     i += 1;
                 }
             }
         }
-        return out_bytes;
+    } else {
+        text = raw;
     }
 
-    // SentencePiece decoding: replace '\xe2\x96\x81' with regular space
-    std::string result;
-    result.reserve(raw.size());
-    for (size_t i = 0; i < raw.size(); ) {
-        unsigned char b0 = static_cast<unsigned char>(raw[i]);
-        if (b0 == 0xE2 && i + 2 < raw.size() &&
-            static_cast<unsigned char>(raw[i+1]) == 0x96 &&
-            static_cast<unsigned char>(raw[i+2]) == 0x81) {
-            result.push_back(' ');
+    // Replace all SentencePiece (\xe2\x96\x81) and BPE (\xc4\xa0) spaces with regular space
+    std::string clean;
+    clean.reserve(text.size());
+    for (size_t i = 0; i < text.size(); ) {
+        unsigned char b0 = static_cast<unsigned char>(text[i]);
+        if (b0 == 0xE2 && i + 2 < text.size() &&
+            static_cast<unsigned char>(text[i+1]) == 0x96 &&
+            static_cast<unsigned char>(text[i+2]) == 0x81) {
+            clean.push_back(' ');
             i += 3;
+        } else if (b0 == 0xC4 && i + 1 < text.size() &&
+                   static_cast<unsigned char>(text[i+1]) == 0xA0) {
+            clean.push_back(' ');
+            i += 2;
         } else {
-            result.push_back(raw[i]);
+            clean.push_back(text[i]);
             i++;
         }
     }
-    return result;
+    return clean;
 }
 
 void BitNetEngine::update_hardware_telemetry() {
@@ -1247,9 +1261,10 @@ int BitNetEngine::generate_stream(
     stop_requested_.store(false);
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // 1. Format and tokenize prompt using BitNet chat template
+    // 1. Format and tokenize prompt using model-appropriate template
     std::string formatted_prompt = prompt;
-    if (formatted_prompt.find("Human:") == std::string::npos && formatted_prompt.find("BITNETAssistant:") == std::string::npos) {
+    bool is_microsoft_2b = (config_.arch == "bitnet-b1.58" && config_.n_layers >= 20);
+    if (is_microsoft_2b && formatted_prompt.find("Human:") == std::string::npos && formatted_prompt.find("BITNETAssistant:") == std::string::npos) {
         formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
     }
 
