@@ -303,51 +303,9 @@ class BitNetFFI {
       yield* controller.stream;
       nativeCallback.close();
     } else {
-      // Intelligent fallback streamer for environments without native shared library
-      final tokens = _generateDynamicFallbackTokens(prompt);
-      for (final tok in tokens) {
-        if (_stopRequested) break;
-        await Future.delayed(const Duration(milliseconds: 28));
-        yield tok;
-      }
+      // Fallback message when native binary is unavailable
+      yield '[bitnet.cpp]: Нативная библиотека libbitnet.so не найдена. Убедитесь, что приложение собрано для архитектуры ARM64-v8a.';
     }
-  }
-
-  List<String> _generateDynamicFallbackTokens(String prompt) {
-    final lower = prompt.toLowerCase();
-    final text = StringBuffer();
-
-    if (lower.contains('python') || lower.contains('код') || lower.contains('функци')) {
-      text.write('Вот пример оптимизированной обработки на Python:\n\n```python\n');
-      text.write('import numpy as np\n\n');
-      text.write('def process_bitnet_activations(weights, activations):\n');
-      text.write('    # Троичное квантование: W in {-1, 0, +1}\n');
-      text.write('    scale = np.max(np.abs(activations)) / 127.0\n');
-      text.write('    q_act = np.clip(np.round(activations / scale), -128, 127).astype(np.int8)\n');
-      text.write('    # Матричное сложение без умножений\n');
-      text.write('    result = np.dot(weights.astype(np.float32), q_act.astype(np.float32)) * scale\n');
-      text.write('    return result\n```\n\n');
-      text.write('Данный алгоритм исключает дорогостоящие операции умножения (FP32/FP16), заменяя их суммированием в регистрах ARM NEON.');
-    } else if (lower.contains('квантован') || lower.contains('1.58') || lower.contains('троичн')) {
-      text.write('В архитектуре BitNet b1.58 каждый вес принимает одно из трех значений: **{-1, 0, +1}**.\n\n');
-      text.write('1. **Энергоэффективность**: операция матричного умножения (GEMM) превращается в сложение и вычитание (Addition-only GEMM).\n');
-      text.write('2. **Память**: каждый вес кодируется всего ~1.58 битами (двумя битами для 4 состояний: -1, 0, +1 и резерв).\n');
-      text.write('3. **Производительность ARM**: векторные инструкции NEON параллельно обрабатывают до 16 элементов за такт.');
-    } else if (lower.contains('лог') || lower.contains('памят') || lower.contains('задержк')) {
-      text.write('Анализ параметров инференса на архитектуре ARM64-v8a:\n\n');
-      text.write('- **Задержка первого токена (TTFT)**: ~38-45 мс\n');
-      text.write('- **Пропускная способность**: ~31.8 - 34.2 токенов/сек\n');
-      text.write('- **Потребление ОЗУ**: 1.14 ГБ (KV-кэш: 240 МБ при контексте 2048)\n');
-      text.write('- **Тепловыделение**: 0.85 Вт (оптимально для мобильных устройств)');
-    } else {
-      text.write('Локальное ядро BitNet обработало ваш запрос: «$prompt».\n\n');
-      text.write('Вычисления выполнены с использованием троичных квантованных тензоров 1.58b без обращения к внешним серверам. Модель готова к дальнейшему диалогу.');
-    }
-
-    // Split text into word tokens preserving punctuation and whitespace
-    final regex = RegExp(r'(\s+|[^\s]+)');
-    final matches = regex.allMatches(text.toString());
-    return matches.map((m) => m.group(0)!).toList();
   }
 
   void dispose() {

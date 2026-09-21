@@ -260,3 +260,95 @@ void bitnet_rope(float* q, float* k, int n_heads, int head_dim, int pos, float t
         }
     }
 }
+
+float bitnet_fp16_to_fp32(uint16_t h) {
+    uint32_t w = static_cast<uint32_t>(h & 0x7fff) << 13;
+    uint32_t sign = static_cast<uint32_t>(h & 0x8000) << 16;
+    uint32_t exp = (h >> 10) & 0x1f;
+    if (exp == 0x1f) {
+        return 0.0f; // Inf or NaN
+    }
+    if (exp == 0) {
+        if ((h & 0x03ff) == 0) return 0.0f;
+        float val = static_cast<float>(h & 0x03ff) / static_cast<float>(1 << 24);
+        return (h & 0x8000) ? -val : val;
+    }
+    w += static_cast<uint32_t>(127 - 15) << 23;
+    w |= sign;
+    float f = 0.0f;
+    std::memcpy(&f, &w, sizeof(f));
+    return f;
+}
+
+void bitnet_gemm_q8_0(
+    const int8_t* activations,
+    const uint8_t* q8_weights,
+    float* output,
+    int rows,
+    int cols,
+    float act_scale,
+    int n_threads
+) {
+    const int blocks_per_row = cols / 32;
+    const size_t row_stride_bytes = static_cast<size_t>(blocks_per_row) * 34;
+
+    auto worker = [&](int start_r, int end_r) {
+        for (int r = start_r; r < end_r; ++r) {
+            const uint8_t* row_ptr = q8_weights + r * row_stride_bytes;
+            float row_sum = 0.0f;
+
+            for (int b = 0; b < blocks_per_row; ++b) {
+                const uint8_t* blk = row_ptr + b * 34;
+                uint16_t d_raw;
+                std::memcpy(&d_raw, blk, sizeof(uint16_t));
+                float d = bitnet_fp16_to_fp32(d_raw);
+                const int8_t* qs = reinterpret_cast<const int8_t*>(blk + 2);
+                const int8_t* act = activations + b * 32;
+
+                int32_t acc = 0;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+                int8x16_t a0 = vld1q_s8(act);
+                int8x16_t w0 = vld1q_s8(qs);
+                int8x16_t a1 = vld1q_s8(act + 16);
+                int8x16_t w1 = vld1q_s8(qs + 16);
+
+                int16x8_t p0_l = vmull_s8(vget_low_s8(a0), vget_low_s8(w0));
+                int16x8_t p0_h = vmull_s8(vget_high_s8(a0), vget_high_s8(w0));
+                int16x8_t p1_l = vmull_s8(vget_low_s8(a1), vget_low_s8(w1));
+                int16x8_t p1_h = vmull_s8(vget_high_s8(a1), vget_high_s8(w1));
+
+                int32x4_t s = vpaddlq_s16(p0_l);
+                s = vpadalq_s16(s, p0_h);
+                s = vpadalq_s16(s, p1_l);
+                s = vpadalq_s16(s, p1_h);
+
+                acc = vgetq_lane_s32(s, 0) + vgetq_lane_s32(s, 1) + vgetq_lane_s32(s, 2) + vgetq_lane_s32(s, 3);
+#else
+                for (int i = 0; i < 32; ++i) {
+                    acc += static_cast<int32_t>(act[i]) * static_cast<int32_t>(qs[i]);
+                }
+#endif
+                row_sum += static_cast<float>(acc) * (d * act_scale);
+            }
+            output[r] = row_sum;
+        }
+    };
+
+    if (n_threads <= 1 || rows < 16) {
+        worker(0, rows);
+    } else {
+        std::vector<std::thread> workers;
+        int chunk = (rows + n_threads - 1) / n_threads;
+        for (int t = 0; t < n_threads; ++t) {
+            int s = t * chunk;
+            int e = std::min(rows, s + chunk);
+            if (s < e) {
+                workers.emplace_back(worker, s, e);
+            }
+        }
+        for (auto& w : workers) {
+            w.join();
+        }
+    }
+}
+

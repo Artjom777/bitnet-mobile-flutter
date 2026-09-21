@@ -57,4 +57,18 @@ void bitnet_swiglu(float* gate, const float* up, int size);
 // Rotary Positional Embedding (RoPE)
 void bitnet_rope(float* q, float* k, int n_heads, int head_dim, int pos, float theta = 10000.0f);
 
+// Convert IEEE 754 half-precision float (16-bit) to float32
+float bitnet_fp16_to_fp32(uint16_t h);
+
+// Q8_0 GEMM: Matrix multiplication of activations (int8) by Q8_0 weights (34-byte blocks: fp16 scale + 32 int8)
+void bitnet_gemm_q8_0(
+    const int8_t* activations,
+    const uint8_t* q8_weights,
+    float* output,
+    int rows,
+    int cols,
+    float act_scale,
+    int n_threads
+);
+
 #endif // BITNET_KERNEL_H

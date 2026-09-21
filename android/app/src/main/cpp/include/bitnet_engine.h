@@ -62,6 +62,23 @@ struct GGUFTensorInfo {
     size_t size_bytes = 0;
 };
 
+// Represents any linear layer (Q8_0, Ternary 2-bit i2_s, F16, or F32)
+struct BitNetLinear {
+    int in_features = 0;  // cols
+    int out_features = 0; // rows
+    int type = -1;        // -1: default ternary packed, 0: F32, 1: F16, 7/8: Q8_0, 29/30: i2_s packed
+    std::vector<uint8_t> raw_data;
+
+    void matvec(const float* x, float* y, int n_threads = 4) const;
+    void clear() {
+        raw_data.clear();
+        raw_data.shrink_to_fit();
+        in_features = 0;
+        out_features = 0;
+        type = -1;
+    }
+};
+
 class BitNetEngine {
 public:
     BitNetEngine();
@@ -75,6 +92,7 @@ public:
     int tokenize(const std::string& text, std::vector<int>& tokens);
     std::string token_to_str(int token_id);
 
+    // Pure autoregressive neural generation driven directly by the model weights
     int generate_stream(
         const std::string& prompt,
         int max_tokens,
@@ -86,36 +104,44 @@ public:
 
     void stop_generation() { stop_requested_.store(true); }
 
-    std::string synthesize_reasoning_response(const std::string& prompt);
-
     BitNetTelemetry get_telemetry() const;
     const BitNetConfig& get_config() const { return config_; }
 
 private:
     BitNetConfig config_;
     bool model_loaded_ = false;
-    bool is_model_calibrated_ = false;
     std::atomic<bool> stop_requested_{false};
     mutable BitNetTelemetry telemetry_;
 
     struct Layer {
-        std::vector<uint8_t> wq_packed;
-        std::vector<uint8_t> wk_packed;
-        std::vector<uint8_t> wv_packed;
-        std::vector<uint8_t> wo_packed;
+        BitNetLinear wq;
+        BitNetLinear wk;
+        BitNetLinear wv;
+        BitNetLinear wo;
 
-        std::vector<uint8_t> w_gate_packed;
-        std::vector<uint8_t> w_up_packed;
-        std::vector<uint8_t> w_down_packed;
+        BitNetLinear w_gate;
+        BitNetLinear w_up;
+        BitNetLinear w_down;
 
         std::vector<float> attn_norm;
         std::vector<float> ffn_norm;
+
+        void clear() {
+            wq.clear(); wk.clear(); wv.clear(); wo.clear();
+            w_gate.clear(); w_up.clear(); w_down.clear();
+            attn_norm.clear(); attn_norm.shrink_to_fit();
+            ffn_norm.clear(); ffn_norm.shrink_to_fit();
+        }
     };
 
     std::vector<Layer> layers_;
     std::vector<float> token_embedding_table_;
     std::vector<float> final_norm_;
-    std::vector<uint8_t> lm_head_packed_;
+    BitNetLinear lm_head_;
+    bool has_lm_head_ = false;
+    int bos_token_id_ = 1;
+    int eos_token_id_ = 2;
+
     std::vector<std::string> vocab_;
     std::unordered_map<std::string, int> token_to_id_;
 
