@@ -150,28 +150,48 @@ class RussianSkillService {
     final trimmed = chunk.trim();
     if (trimmed.isEmpty) return chunk;
 
+    String? extractTextFromJson(dynamic data) {
+      if (data is List && data.isNotEmpty) {
+        final first = data[0];
+        if (first is String) {
+          return data.whereType<String>().join('');
+        } else if (first is List) {
+          final sb = StringBuffer();
+          for (final item in data) {
+            if (item is List) {
+              for (final sub in item) {
+                if (sub is List && sub.isNotEmpty && sub[0] is String) {
+                  sb.write(sub[0]);
+                }
+              }
+            }
+          }
+          if (sb.isNotEmpty) return sb.toString();
+        }
+      } else if (data is String && data.isNotEmpty) {
+        return data;
+      }
+      return null;
+    }
+
     Future<String?> tryPost(String urlStr) async {
       try {
-        final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 2500);
+        final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 5000);
         final request = await client.postUrl(Uri.parse(urlStr));
         request.headers.set(HttpHeaders.contentTypeHeader, 'application/x-www-form-urlencoded; charset=utf-8');
-        request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36');
+        request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
 
         final bodyBytes = utf8.encode('q=${Uri.encodeQueryComponent(trimmed)}');
         request.contentLength = bodyBytes.length;
         request.add(bodyBytes);
 
-        final response = await request.close().timeout(const Duration(milliseconds: 2500));
+        final response = await request.close().timeout(const Duration(milliseconds: 5000));
         if (response.statusCode == 200) {
           final body = await response.transform(utf8.decoder).join();
           final data = jsonDecode(body);
           client.close();
-
-          if (data is List && data.isNotEmpty && data[0] is String) {
-            return data[0] as String;
-          } else if (data is String && data.isNotEmpty) {
-            return data;
-          }
+          final res = extractTextFromJson(data);
+          if (res != null && res.trim().isNotEmpty) return res;
         }
         client.close();
       } catch (_) {}
@@ -190,25 +210,22 @@ class RussianSkillService {
       }
     }
 
-    // Secondary GET fallback with short timeout
+    // Secondary GET fallback with query params
     try {
-      final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 2000);
+      final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 4000);
       final uri = Uri.parse(
         'https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=$sourceLang&tl=$targetLang&q=${Uri.encodeComponent(trimmed)}',
       );
       final request = await client.getUrl(uri);
-      request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Linux; Android 14)');
-      final response = await request.close().timeout(const Duration(milliseconds: 2000));
+      request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+      final response = await request.close().timeout(const Duration(milliseconds: 4000));
 
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
         final data = jsonDecode(body);
         client.close();
-        if (data is List && data.isNotEmpty && data[0] is String) {
-          return data[0] as String;
-        } else if (data is String && data.isNotEmpty) {
-          return data;
-        }
+        final res = extractTextFromJson(data);
+        if (res != null && res.trim().isNotEmpty) return res;
       }
       client.close();
     } catch (_) {}
@@ -265,6 +282,11 @@ class RussianSkillService {
       'Hello': 'Здравствуйте',
       'Hi!': 'Привет!',
       'Hi': 'Привет',
+      'Ternary bit-quantized data is a method of representing numbers': 'Троичные квантованные данные — это метод представления чисел',
+      'Ternary bit-quantized data': 'Троичные квантованные данные',
+      'Ternary (or base-3)': 'Троичная система счисления (по основанию 3)',
+      'is a method of representing numbers': 'это способ представления чисел',
+      'in three different bases': 'в трех различных базисах',
       'Quantization is': 'Квантование — это',
       'quantization': 'квантование',
       'is a technique': 'это метод',
@@ -283,6 +305,16 @@ class RussianSkillService {
       'neural network': 'нейронная сеть',
       'language model': 'языковая модель',
       'artificial intelligence': 'искусственный интеллект',
+      'In the context of': 'В контексте',
+      'represented as': 'представляются как',
+      'sign bit': 'знаковый бит',
+      'fractional part': 'дробная часть',
+      'integer representation': 'представление целых чисел',
+      'integers': 'целые числа',
+      'characters': 'символы',
+      'bytes': 'байт',
+      'bits': 'бит',
+      'binary': 'двоичный',
     };
 
     phrases.forEach((en, ru) {

@@ -13,11 +13,13 @@
 #include <android/log.h>
 #define TAG "BitNetEngine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #else
 #include <cstdio>
 #define TAG "BitNetEngine"
 #define LOGI(...) do { printf("[BitNetEngine INFO] "); printf(__VA_ARGS__); printf("\n"); } while(0)
+#define LOGW(...) do { printf("[BitNetEngine WARN] "); printf(__VA_ARGS__); printf("\n"); } while(0)
 #define LOGE(...) do { fprintf(stderr, "[BitNetEngine ERROR] "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); } while(0)
 #endif
 
@@ -1318,6 +1320,7 @@ int BitNetEngine::generate_stream(
 
     std::string utf8_pending;
     std::string recent_window;
+    int consecutive_number_count = 0;
     for (int step = 0; step < max_tokens; ++step) {
         if (stop_requested_.load()) {
             break;
@@ -1363,6 +1366,53 @@ int BitNetEngine::generate_stream(
         }
 
         std::string tok_str = token_to_str(next_token);
+
+        // Runaway integer listing suppression (detects streaks like: 4 16 32 64 9 15 20 31...)
+        bool is_sep_only = true;
+        for (char c : tok_str) {
+            if (c != ' ' && c != ',' && c != ';' && c != ':' && c != '\t' && c != '\n' &&
+                (unsigned char)c != 0xC4 && (unsigned char)c != 0xA0 &&
+                (unsigned char)c != 0xE2 && (unsigned char)c != 0x96 && (unsigned char)c != 0x81) {
+                is_sep_only = false;
+                break;
+            }
+        }
+
+        bool is_num = false;
+        if (!tok_str.empty() && !is_sep_only) {
+            size_t start = 0;
+            while (start < tok_str.size() && (tok_str[start] == ' ' || tok_str[start] == ',' || tok_str[start] == '\t' || tok_str[start] == '\n' ||
+                                              (unsigned char)tok_str[start] == 0xC4 || (unsigned char)tok_str[start] == 0xA0 ||
+                                              (unsigned char)tok_str[start] == 0xE2 || (unsigned char)tok_str[start] == 0x96 || (unsigned char)tok_str[start] == 0x81)) {
+                start++;
+            }
+            size_t end = tok_str.size();
+            while (end > start && (tok_str[end - 1] == ' ' || tok_str[end - 1] == ',' || tok_str[end - 1] == '\t' || tok_str[end - 1] == '\n')) {
+                end--;
+            }
+            if (end > start) {
+                bool all_digits = true;
+                for (size_t idx = start; idx < end; ++idx) {
+                    if (!std::isdigit(static_cast<unsigned char>(tok_str[idx]))) {
+                        all_digits = false;
+                        break;
+                    }
+                }
+                if (all_digits) {
+                    is_num = true;
+                }
+            }
+        }
+
+        if (is_num) {
+            consecutive_number_count++;
+            if (consecutive_number_count >= 5) {
+                LOGW("BitNetEngine: runaway number sequence loop detected (streak=%d), halting stream", consecutive_number_count);
+                break;
+            }
+        } else if (!is_sep_only) {
+            consecutive_number_count = 0;
+        }
         recent_window += tok_str;
         if (recent_window.size() > 64) {
             recent_window = recent_window.substr(recent_window.size() - 64);

@@ -726,7 +726,11 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (msg.isTranslated || msg.originalText != null) ...[
+                  final showTranslateBar = msg.isTranslated ||
+                      msg.originalText != null ||
+                      (!msg.isStreaming && RussianSkillService.instance.containsLatinWords(msg.text));
+
+                  if (showTranslateBar) ...[
                     Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -740,7 +744,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           const Icon(Icons.translate, size: 12, color: AppColors.secondary),
                           const SizedBox(width: 5),
                           Text(
-                            msg.isTranslated ? 'Русский перевод' : 'Оригинал (English)',
+                            msg.isTranslated
+                                ? 'Русский перевод'
+                                : (msg.originalText != null ? 'Оригинал (English)' : 'Текст на английском'),
                             style: const TextStyle(
                               fontFamily: AppTypography.monoFont,
                               fontSize: 10,
@@ -748,22 +754,28 @@ class _ChatScreenState extends State<ChatScreen> {
                               color: AppColors.secondary,
                             ),
                           ),
-                          if (msg.originalText != null) ...[
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () => widget.state.toggleTranslation(msg.id),
-                              child: Text(
-                                msg.isTranslated ? 'Показать оригинал' : 'Вернуть русский',
-                                style: const TextStyle(
-                                  fontFamily: AppTypography.monoFont,
-                                  fontSize: 10,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  decoration: TextDecoration.underline,
-                                ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () {
+                              if (msg.isTranslated) {
+                                widget.state.toggleTranslation(msg.id);
+                              } else {
+                                widget.state.translateMessage(msg.id);
+                              }
+                            },
+                            child: Text(
+                              msg.isTranslated
+                                  ? 'Показать оригинал'
+                                  : (msg.originalText != null ? 'Вернуть русский' : 'Перевести на русский'),
+                              style: const TextStyle(
+                                fontFamily: AppTypography.monoFont,
+                                fontSize: 10,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
                               ),
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),

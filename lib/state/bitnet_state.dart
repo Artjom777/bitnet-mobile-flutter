@@ -304,13 +304,18 @@ class BitNetState extends ChangeNotifier {
                   lowerName.contains('b1_58-large')) {
                 continue;
               }
+              if (name == 'ggml-model-i2_s.gguf' || lowerName.contains('2b-4t')) {
+                try {
+                  final f = File(path);
+                  if (f.existsSync()) f.deleteSync();
+                } catch (_) {}
+                continue;
+              }
               if (name.endsWith('.gguf') || name.endsWith('.tl1') || name.endsWith('.bin')) {
                 final sizeBytes = await e.length();
                 final sizeMb = (sizeBytes / (1024 * 1024)).toStringAsFixed(1);
                 String displayName = name;
-                if (name == 'ggml-model-i2_s.gguf') {
-                  displayName = 'BitNet-b1.58-2B-4T (Microsoft Research)';
-                } else if (name.toLowerCase().contains('aramis')) {
+                if (name.toLowerCase().contains('aramis')) {
                   displayName = 'Aramis-2B-BitNet-b1.58 (Диалоговая)';
                 } else if (name.toLowerCase().contains('bifrost')) {
                   displayName = 'BitNet-b1.58-Bifrost-2B';
@@ -343,6 +348,12 @@ class BitNetState extends ChangeNotifier {
       }
     }
 
+    foundFiles.sort((a, b) {
+      if (a.filename.toLowerCase().contains('aramis')) return -1;
+      if (b.filename.toLowerCase().contains('aramis')) return 1;
+      return 0;
+    });
+
     _pickerFiles = foundFiles;
     for (final f in foundFiles) {
       if (!_models.any((m) => m.filename == f.filename)) {
@@ -355,6 +366,9 @@ class BitNetState extends ChangeNotifier {
         !File(m.filename).existsSync());
 
     _models.removeWhere((m) =>
+        m.filename.endsWith('ggml-model-i2_s.gguf') ||
+        m.name.contains('Microsoft Research') ||
+        m.name.contains('2B-4T') ||
         m.name.toLowerCase().contains('m7-70m') ||
         m.name.toLowerCase().contains('smollm') ||
         m.name.toLowerCase().contains('b1_58-large'));
@@ -541,7 +555,7 @@ class BitNetState extends ChangeNotifier {
       if (idx != -1) {
         _messages[idx] = _messages[idx].copyWith(
           text: finalText.isNotEmpty ? finalText : rawText,
-          originalText: isTranslated ? rawText : null,
+          originalText: isTranslated ? rawText : (hasLatin ? rawText : null),
           isTranslated: isTranslated,
           isStreaming: false,
           tokensCount: tokenCount,
