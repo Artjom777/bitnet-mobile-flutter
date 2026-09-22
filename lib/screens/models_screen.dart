@@ -233,9 +233,10 @@ class _ModelsScreenState extends State<ModelsScreen> {
                   ],
                 ),
               ],
-            ),
+            ],
           ),
-          actions: [
+        ),
+        actions: [
             if (isDownloading)
               TextButton(
                 onPressed: () {
