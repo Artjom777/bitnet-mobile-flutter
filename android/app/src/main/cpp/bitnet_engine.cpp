@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstring>
 #include <thread>
+#include <unordered_set>
 #include <unistd.h>
 
 #if defined(__ANDROID__)
@@ -1157,38 +1158,27 @@ int BitNetEngine::sample_next_token(
     const int vocab_size = config_.vocab_size;
     if (vocab_size <= 0) return 0;
 
-    // Mild penalty on immediately previous token if rep_penalty > 1.0f
+    // Repetition penalty on recent history (last 128 tokens)
     if (rep_penalty > 1.0f && !history.empty()) {
-        int prev1 = history.back();
-        if (prev1 >= 0 && prev1 < vocab_size) {
-            logits[prev1] -= 1.5f;
-        }
-    }
-
-    // Exponential frequency repetition penalty on recent history (last 128 tokens)
-    if (rep_penalty > 1.0f && !history.empty()) {
-        std::unordered_map<int, int> counts;
+        std::unordered_set<int> seen;
         size_t start_idx = history.size() > 128 ? history.size() - 128 : 0;
         for (size_t i = start_idx; i < history.size(); ++i) {
-            counts[history[i]]++;
+            seen.insert(history[i]);
         }
-        for (const auto& kv : counts) {
-            int tok = kv.first;
-            int count = kv.second;
+        for (int tok : seen) {
             if (tok >= 0 && tok < vocab_size) {
                 // Do not penalize byte-level prefix tokens or spaces
                 bool is_exempt = false;
                 if (tok < static_cast<int>(vocab_.size())) {
                     const std::string& v = vocab_[tok];
-                    if (v == " " || v == "\xe2\x96\x81" || v == "\xc4\xa0" ||
+                    if (v == " " || v == "\n" || v == "\xe2\x96\x81" || v == "\xc4\xa0" ||
                         (v.size() == 6 && v.rfind("<0x", 0) == 0 && v.back() == '>')) {
                         is_exempt = true;
                     }
                 }
                 if (!is_exempt) {
-                    float penalty = std::pow(rep_penalty, count);
-                    if (logits[tok] < 0.0f) logits[tok] *= penalty;
-                    else logits[tok] /= penalty;
+                    if (logits[tok] > 0.0f) logits[tok] /= rep_penalty;
+                    else logits[tok] *= rep_penalty;
                 }
             }
         }
@@ -1278,10 +1268,27 @@ int BitNetEngine::generate_stream(
 
     // 1. Prompt formatting with model native chat template
     std::string formatted_prompt = prompt;
-    if (formatted_prompt.find("Human:") == std::string::npos &&
-        formatted_prompt.find("<|user|>") == std::string::npos &&
-        formatted_prompt.find("<|im_start|>") == std::string::npos) {
-        formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
+    bool has_chatml = (token_to_id_.find("<|im_start|>") != token_to_id_.end() &&
+                       token_to_id_.find("<|im_end|>") != token_to_id_.end());
+    bool has_llama3 = (token_to_id_.find("<|eot_id|>") != token_to_id_.end() ||
+                       token_to_id_.find("<|start_header_id|>") != token_to_id_.end());
+
+    if (formatted_prompt.find("<|im_start|>") == std::string::npos &&
+        formatted_prompt.find("<|start_header_id|>") == std::string::npos &&
+        formatted_prompt.find("Human:") == std::string::npos &&
+        formatted_prompt.find("<|user|>") == std::string::npos) {
+        if (has_chatml) {
+            formatted_prompt = "<|im_start|>system\nYou are a helpful AI assistant.<|im_end|>\n"
+                               "<|im_start|>user\n" + prompt + "<|im_end|>\n"
+                               "<|im_start|>assistant\n";
+        } else if (has_llama3) {
+            formatted_prompt = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+                               "You are a helpful AI assistant.<|eot_id|>"
+                               "<|start_header_id|>user<|end_header_id|>\n\n" + prompt + "<|eot_id|>"
+                               "<|start_header_id|>assistant<|end_header_id|>\n\n";
+        } else {
+            formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
+        }
     }
 
     std::vector<int> prompt_tokens;
@@ -1361,7 +1368,15 @@ int BitNetEngine::generate_stream(
         }
 
         // Check EOS condition
-        if (next_token == eos_token_id_ || next_token == 2 || next_token == 128001 || next_token == 128009) {
+        bool is_eos = (next_token == eos_token_id_ || next_token == 2 || next_token == 128001 || next_token == 128009);
+        if (!is_eos && next_token >= 0 && next_token < static_cast<int>(vocab_.size())) {
+            const std::string& v = vocab_[next_token];
+            if (v == "</s>" || v == "<|im_end|>" || v == "<|endoftext|>" ||
+                v == "<|end_of_text|>" || v == "<|eot_id|>" || v == "<eos>") {
+                is_eos = true;
+            }
+        }
+        if (is_eos) {
             break;
         }
 
@@ -1406,7 +1421,7 @@ int BitNetEngine::generate_stream(
 
         if (is_num) {
             consecutive_number_count++;
-            if (consecutive_number_count >= 5) {
+            if (consecutive_number_count >= 3) {
                 LOGW("BitNetEngine: runaway number sequence loop detected (streak=%d), halting stream", consecutive_number_count);
                 break;
             }
@@ -1426,6 +1441,7 @@ int BitNetEngine::generate_stream(
             recent_window.find("<|endoftext|>") != std::string::npos ||
             recent_window.find("<|end_of_text|>") != std::string::npos ||
             recent_window.find("<|eot_id|>") != std::string::npos ||
+            recent_window.find("</s>") != std::string::npos ||
             recent_window.find("\n\n\n") != std::string::npos) {
             break;
         }

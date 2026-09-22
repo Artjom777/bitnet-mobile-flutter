@@ -134,6 +134,14 @@ class RussianSkillService {
         continue;
       }
 
+      // Preserve raw code lines intact (e.g. def, class, import, return, for, while, if, print)
+      final isCodeLine = RegExp(r'^(def\s+|class\s+|import\s+|from\s+\w+\s+import|return(\s+|$)|while\s+|for\s+\w+\s+in|if\s+|elif\s+|else:\s*$|except(\s+|$)|try:\s*$|finally:\s*$|with\s+|print\()')
+          .hasMatch(trimmedPara);
+      if (isCodeLine) {
+        translatedParagraphs.add(para); // Preserve verbatim with indentation
+        continue;
+      }
+
       if (trimmedPara.length <= 1200) {
         final trans = await _translateChunk(trimmedPara, sourceLang: sourceLang, targetLang: targetLang);
         translatedParagraphs.add(trans ?? trimmedPara);

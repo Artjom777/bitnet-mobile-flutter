@@ -23,9 +23,9 @@ class InferenceSettings {
     this.contextSize = 4096,
     this.maxTokens = 512,
     this.deviceBackend = 'cpu',
-    this.temperature = 0.25,
-    this.topP = 0.85,
-    this.repetitionPenalty = 1.25,
+    this.temperature = 0.70,
+    this.topP = 0.90,
+    this.repetitionPenalty = 1.10,
     this.systemPrompt =
         'Ты персональный локальный ассистент на базе модели BitNet b1.58. Отвечай лаконично, точно и структурированно без выхода в интернет.',
     this.offlineMode = true,
