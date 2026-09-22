@@ -26,12 +26,10 @@ class ModelDownloader {
   static const Map<String, String> officialModels = {
     'BitNet-b1.58-2B-4T (Microsoft Research i2_s, 1.15 ГБ) — Основная BitNet':
         'https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf',
-    'Qwen2.5-0.5B-Instruct (GGUF Q8_0, 530 МБ) — Диалоговая (RU / EN)':
-        'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf',
-    'SmolLM2-360M-Instruct (GGUF Q8_0, 385 МБ) — Быстрая мобильная':
-        'https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf',
-    'Llama-3.2-1B-Instruct (GGUF Q4_K_M, 800 МБ) — Диалоговая Meta':
-        'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
+    'Aramis-2B-BitNet-b1.58 (Диалоговая i2_s, 1.15 ГБ)':
+        'https://huggingface.co/jpacifico/Aramis-2B-BitNet-b1.58-i2s-GGUF/resolve/main/aramis-ggml-model-i2_s.gguf',
+    'BitNet-b1.58-Bifrost-2B (Оптимизированная i2_s, 1.15 ГБ)':
+        'https://huggingface.co/Bifrost-AI/Bitnet-b1.58-Bifrost-SOL-2B-4T-gguf/resolve/main/bifrost-bitnet-158b-2B-4T-I2_S.gguf',
   };
 
   bool _isCanceled = false;
