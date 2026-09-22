@@ -192,7 +192,7 @@ class BitNetState extends ChangeNotifier {
 
     _activeModel = model.copyWith(isLoaded: true, status: 'В памяти');
     _models = _models.map((m) {
-      if (m.id == model.id) {
+      if (m.id == model.id || (m.filename.isNotEmpty && m.filename == model.filename)) {
         return m.copyWith(isLoaded: true, status: 'В памяти');
       } else {
         return m.copyWith(isLoaded: false, status: m.filename.startsWith('builtin://') ? 'В резерве' : 'На накопителе');
@@ -307,9 +307,17 @@ class BitNetState extends ChangeNotifier {
               if (name.endsWith('.gguf') || name.endsWith('.tl1') || name.endsWith('.bin')) {
                 final sizeBytes = await e.length();
                 final sizeMb = (sizeBytes / (1024 * 1024)).toStringAsFixed(1);
+                String displayName = name;
+                if (name == 'ggml-model-i2_s.gguf') {
+                  displayName = 'BitNet-b1.58-2B-4T (Microsoft Research)';
+                } else if (name.toLowerCase().contains('aramis')) {
+                  displayName = 'Aramis-2B-BitNet-b1.58 (Диалоговая)';
+                } else if (name.toLowerCase().contains('bifrost')) {
+                  displayName = 'BitNet-b1.58-Bifrost-2B';
+                }
                 final item = ModelItem(
                   id: 'scanned_${path.hashCode}',
-                  name: name,
+                  name: displayName,
                   architecture: 'BitNet b1.58 Ternary',
                   filename: path,
                   format: name.endsWith('.tl1') ? '.tl1' : (name.endsWith('.gguf') ? '.gguf' : '.bin'),
@@ -360,7 +368,11 @@ class BitNetState extends ChangeNotifier {
         !File(_activeModel.filename).existsSync()) {
       _activeModel = _models.isNotEmpty ? _models.first : ModelItem.builtin;
     }
-    if (!_activeModel.isLoaded && _models.isNotEmpty) {
+    
+    // If external models exist and active model is still the fallback builtin, switch to external model!
+    if (_activeModel.filename.startsWith('builtin://') && foundFiles.isNotEmpty) {
+      loadModel(foundFiles.first);
+    } else if (!_activeModel.isLoaded && _models.isNotEmpty) {
       loadModel(_models.first);
     }
 

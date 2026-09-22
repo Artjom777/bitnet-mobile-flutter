@@ -292,9 +292,17 @@ class _ModelsScreenState extends State<ModelsScreen> {
                         if (p.isCompleted) {
                           Navigator.of(ctx).pop();
 
+                          String modelDisplayName = filename;
+                          for (final entry in ModelDownloader.officialModels.entries) {
+                            if (entry.value == url) {
+                              modelDisplayName = entry.key.split(' (').first;
+                              break;
+                            }
+                          }
+
                           final newModel = ModelItem(
                             id: 'downloaded_${DateTime.now().millisecondsSinceEpoch}',
-                            name: filename,
+                            name: modelDisplayName,
                             architecture: 'BitNet b1.58 Ternary',
                             filename: destPath,
                             format: filename.endsWith('.tl1') ? '.tl1' : '.gguf',
@@ -317,9 +325,14 @@ class _ModelsScreenState extends State<ModelsScreen> {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Модель $filename успешно скачана и загружена в память!'),
+                                content: Text('Модель «$modelDisplayName» загружена и активирована!'),
                                 backgroundColor: AppColors.secondary,
                                 behavior: SnackBarBehavior.floating,
+                                action: SnackBarAction(
+                                  label: 'В ЧАТ',
+                                  textColor: Colors.white,
+                                  onPressed: () => widget.state.setTab(0),
+                                ),
                               ),
                             );
                           }

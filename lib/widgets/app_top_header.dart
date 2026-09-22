@@ -147,9 +147,13 @@ class AppTopHeader extends StatelessWidget {
                                 !state.hasActiveModel
                                     ? 'Нет модели'
                                     : (state.activeModel.isLoaded
-                                        ? (state.activeModel.name.contains('3B')
-                                            ? 'b1.58-3B'
-                                            : state.activeModel.name.split('-').first)
+                                        ? (state.activeModel.name.toLowerCase().contains('aramis')
+                                            ? 'Aramis-2B'
+                                            : (state.activeModel.name.toLowerCase().contains('bifrost')
+                                                ? 'Bifrost-2B'
+                                                : (state.activeModel.name.toLowerCase().contains('core')
+                                                    ? 'BitNet-Core'
+                                                    : 'BitNet-2B')))
                                         : 'Не в ОЗУ'),
                                 style: const TextStyle(
                                   fontFamily: AppTypography.monoFont,
