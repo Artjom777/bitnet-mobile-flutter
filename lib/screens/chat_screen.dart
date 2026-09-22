@@ -662,6 +662,9 @@ class _ChatScreenState extends State<ChatScreen> {
     // Dynamic markdown code block parsing
     final codeBlockRegex = RegExp(r'```(\w*)\n([\s\S]*?)```');
     final hasCodeBlock = codeBlockRegex.hasMatch(msg.text);
+    final showTranslateBar = msg.isTranslated ||
+        msg.originalText != null ||
+        (!msg.isStreaming && RussianSkillService.instance.containsLatinWords(msg.text));
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -726,10 +729,6 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  final showTranslateBar = msg.isTranslated ||
-                      msg.originalText != null ||
-                      (!msg.isStreaming && RussianSkillService.instance.containsLatinWords(msg.text));
-
                   if (showTranslateBar) ...[
                     Container(
                       margin: const EdgeInsets.only(bottom: 8),
