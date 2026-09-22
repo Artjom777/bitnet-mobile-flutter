@@ -365,8 +365,8 @@ void bitnet_gemm_i2_s(
             int32_t accumulator = 0;
 
 #if defined(__aarch64__) && defined(__ARM_NEON)
-            // Microsoft I2_S encoding: 00b = -1, 01b = 0, 10b = +1, 11b = 0
-            static const int8_t lut_bytes[16] = {-1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            // Microsoft bitnet.cpp I2_S encoding: 00b = 0, 01b = +1, 10b = -1, 11b = 0
+            static const int8_t lut_bytes[16] = {0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             const int8x16_t lut = vld1q_s8(lut_bytes);
             const uint8x16_t mask = vdupq_n_u8(0x03);
             int32x4_t total_acc = vdupq_n_s32(0);
@@ -412,7 +412,7 @@ void bitnet_gemm_i2_s(
             accumulator = vgetq_lane_s32(total_acc, 0) + vgetq_lane_s32(total_acc, 1) +
                           vgetq_lane_s32(total_acc, 2) + vgetq_lane_s32(total_acc, 3);
 #else
-            static const int8_t i2_s_lut[4] = {-1, 0, 1, 0};
+            static const int8_t i2_s_lut[4] = {0, 1, -1, 0};
             for (int blk = 0; blk < blocks_per_row; ++blk) {
                 const uint8_t* blk_ptr = row_bytes + blk * 32;
                 const int8_t* act_blk = activations + blk * 128;
@@ -424,7 +424,7 @@ void bitnet_gemm_i2_s(
 
                 for (int gp = 0; gp < 32; ++gp) {
                     uint8_t byte = blk_ptr[gp];
-                    if (byte == 0x55) continue; // All 4 weights are 01b (0) -> fast skip
+                    if (byte == 0x00) continue; // All 4 weights are 00b (0) -> fast skip
 
                     int w0 = i2_s_lut[(byte >> 6) & 3];
                     int w1 = i2_s_lut[(byte >> 4) & 3];
