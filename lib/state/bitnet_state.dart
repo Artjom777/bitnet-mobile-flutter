@@ -525,7 +525,9 @@ class BitNetState extends ChangeNotifier {
           (isRussianInput || _settings.autoTranslateToRussian || !hasCyrillic) &&
           hasLatin) {
         final translated = await RussianSkillService.instance.translateToRussian(rawText);
-        if (translated != null && translated.trim().isNotEmpty) {
+        if (translated != null &&
+            translated.trim().isNotEmpty &&
+            translated.trim() != rawText.trim()) {
           finalText = translated;
           isTranslated = true;
         }

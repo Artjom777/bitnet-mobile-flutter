@@ -141,7 +141,7 @@ class RussianSkillService {
     return result;
   }
 
-  /// Translate a single text chunk with multi-provider fallback
+  /// Translate a single text chunk with multi-provider fast parallel fallback
   Future<String?> _translateChunk(
     String chunk, {
     required String sourceLang,
@@ -150,26 +150,18 @@ class RussianSkillService {
     final trimmed = chunk.trim();
     if (trimmed.isEmpty) return chunk;
 
-    // List of high-reliability POST endpoints (fast Google translation without scraping blocks)
-    final postEndpoints = [
-      'https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=$sourceLang&tl=$targetLang',
-      'https://translate.google.com/translate_a/t?client=at&sl=$sourceLang&tl=$targetLang',
-      'https://clients5.google.com/translate_a/t?client=at&sl=$sourceLang&tl=$targetLang',
-      'https://clients5.google.com/translate_a/t?client=gtx&sl=$sourceLang&tl=$targetLang',
-    ];
-
-    for (final urlStr in postEndpoints) {
+    Future<String?> tryPost(String urlStr) async {
       try {
-        final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
+        final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 2500);
         final request = await client.postUrl(Uri.parse(urlStr));
         request.headers.set(HttpHeaders.contentTypeHeader, 'application/x-www-form-urlencoded; charset=utf-8');
         request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36');
-        
+
         final bodyBytes = utf8.encode('q=${Uri.encodeQueryComponent(trimmed)}');
         request.contentLength = bodyBytes.length;
         request.add(bodyBytes);
 
-        final response = await request.close().timeout(const Duration(seconds: 4));
+        final response = await request.close().timeout(const Duration(milliseconds: 2500));
         if (response.statusCode == 200) {
           final body = await response.transform(utf8.decoder).join();
           final data = jsonDecode(body);
@@ -183,17 +175,30 @@ class RussianSkillService {
         }
         client.close();
       } catch (_) {}
+      return null;
     }
 
-    // Secondary GET fallback
+    // Attempt primary fast endpoints in parallel
+    final primaryResults = await Future.wait([
+      tryPost('https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=$sourceLang&tl=$targetLang'),
+      tryPost('https://translate.google.com/translate_a/t?client=at&sl=$sourceLang&tl=$targetLang'),
+    ]);
+
+    for (final res in primaryResults) {
+      if (res != null && res.trim().isNotEmpty) {
+        return res;
+      }
+    }
+
+    // Secondary GET fallback with short timeout
     try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
+      final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 2000);
       final uri = Uri.parse(
         'https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=$sourceLang&tl=$targetLang&q=${Uri.encodeComponent(trimmed)}',
       );
       final request = await client.getUrl(uri);
       request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Linux; Android 14)');
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(const Duration(milliseconds: 2000));
 
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
@@ -257,18 +262,27 @@ class RussianSkillService {
       'How can I help you?': 'Чем я могу помочь вам?',
       'Hello! How can I assist you today?': 'Здравствуйте! Чем я могу помочь вам сегодня?',
       'Hello!': 'Здравствуйте!',
+      'Hello': 'Здравствуйте',
       'Hi!': 'Привет!',
+      'Hi': 'Привет',
       'Quantization is': 'Квантование — это',
+      'quantization': 'квантование',
       'is a technique': 'это метод',
       'to reduce memory': 'для экономии памяти',
       'The answer is': 'Ответ:',
       'is equal to': 'равно',
       'BitNet b1.58 is a 1-bit LLM': 'BitNet b1.58 — это 1-битная LLM',
       'ternary weights': 'троичные веса {-1, 0, +1}',
+      'ternary': 'троичный',
+      'weights': 'веса',
       'matrix multiplication': 'матричное умножение',
       'memory consumption': 'потребление оперативной памяти',
       'energy efficiency': 'энергоэффективность',
       'inference speed': 'скорость инференса',
+      'tokens per second': 'токенов в секунду',
+      'neural network': 'нейронная сеть',
+      'language model': 'языковая модель',
+      'artificial intelligence': 'искусственный интеллект',
     };
 
     phrases.forEach((en, ru) {
