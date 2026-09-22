@@ -83,30 +83,6 @@ class BitNetState extends ChangeNotifier {
   }
 
   Future<void> _ensureDefaultModelAndScan() async {
-    try {
-      final storageDir = await ModelDownloader.resolveModelStorageDir();
-      final defaultModels = [
-        'bitnet-m7-70m.Q8_0.gguf',
-        'smollm2-135m-instruct.Q8_0.gguf',
-      ];
-
-      for (final modelName in defaultModels) {
-        final targetPath = '${storageDir.path}/$modelName';
-        final targetFile = File(targetPath);
-
-        if (!targetFile.existsSync()) {
-          try {
-            final byteData = await rootBundle.load('assets/models/$modelName');
-            final buffer = byteData.buffer;
-            await targetFile.writeAsBytes(
-              buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
-              flush: true,
-            );
-          } catch (_) {}
-        }
-      }
-    } catch (_) {}
-
     await scanLocalModelFiles();
   }
 
@@ -322,6 +298,12 @@ class BitNetState extends ChangeNotifier {
             if (e is File) {
               final path = e.path;
               final name = path.split('/').last;
+              final lowerName = name.toLowerCase();
+              if (lowerName.contains('m7-70m') ||
+                  lowerName.contains('smollm') ||
+                  lowerName.contains('b1_58-large')) {
+                continue;
+              }
               if (name.endsWith('.gguf') || name.endsWith('.tl1') || name.endsWith('.bin')) {
                 final sizeBytes = await e.length();
                 final sizeMb = (sizeBytes / (1024 * 1024)).toStringAsFixed(1);
@@ -363,6 +345,11 @@ class BitNetState extends ChangeNotifier {
         !m.filename.startsWith('builtin://') &&
         m.filename.isNotEmpty &&
         !File(m.filename).existsSync());
+
+    _models.removeWhere((m) =>
+        m.name.toLowerCase().contains('m7-70m') ||
+        m.name.toLowerCase().contains('smollm') ||
+        m.name.toLowerCase().contains('b1_58-large'));
 
     if (!_models.any((m) => m.filename.startsWith('builtin://'))) {
       _models.insert(0, ModelItem.builtin);
