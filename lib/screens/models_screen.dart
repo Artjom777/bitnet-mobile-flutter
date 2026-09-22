@@ -144,9 +144,10 @@ class _ModelsScreenState extends State<ModelsScreen> {
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'Выберите проверенную модель 1.58-бит или введите URL:',
@@ -232,7 +233,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                   ],
                 ),
               ],
-            ],
+            ),
           ),
           actions: [
             if (isDownloading)
