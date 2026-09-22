@@ -659,9 +659,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildAssistantBubble(ChatMessage msg) {
+    var bubbleText = msg.text;
+    if (RegExp(r'```').allMatches(bubbleText).length % 2 != 0) {
+      bubbleText = '$bubbleText\n```';
+    }
+
     // Dynamic markdown code block parsing
     final codeBlockRegex = RegExp(r'```(\w*)\n([\s\S]*?)```');
-    final hasCodeBlock = codeBlockRegex.hasMatch(msg.text);
+    final hasCodeBlock = codeBlockRegex.hasMatch(bubbleText);
     final showTranslateBar = msg.isTranslated ||
         msg.originalText != null ||
         (!msg.isStreaming && RussianSkillService.instance.containsLatinWords(msg.text));
@@ -791,7 +796,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     )
                   else ...[
                     // Render segmented text and code blocks
-                    ..._buildParsedContent(msg.text),
+                    ..._buildParsedContent(bubbleText),
                   ],
                   if (msg.codeSnippet != null && !hasCodeBlock) ...[
                     const SizedBox(height: 12),

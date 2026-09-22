@@ -76,8 +76,8 @@ class BitNetState extends ChangeNotifier {
   }
 
   void _initModels() {
-    _activeModel = ModelItem.builtin;
-    _models = [ModelItem.builtin];
+    _activeModel = ModelItem.empty;
+    _models = [];
     _pickerFiles = [];
     _ensureDefaultModelAndScan();
   }
@@ -304,18 +304,13 @@ class BitNetState extends ChangeNotifier {
                   lowerName.contains('b1_58-large')) {
                 continue;
               }
-              if (name == 'ggml-model-i2_s.gguf' || lowerName.contains('2b-4t')) {
-                try {
-                  final f = File(path);
-                  if (f.existsSync()) f.deleteSync();
-                } catch (_) {}
-                continue;
-              }
               if (name.endsWith('.gguf') || name.endsWith('.tl1') || name.endsWith('.bin')) {
                 final sizeBytes = await e.length();
                 final sizeMb = (sizeBytes / (1024 * 1024)).toStringAsFixed(1);
                 String displayName = name;
-                if (name.toLowerCase().contains('aramis')) {
+                if (name == 'ggml-model-i2_s.gguf' || lowerName.contains('2b-4t')) {
+                  displayName = 'BitNet-b1.58-2B-4T (Microsoft Research)';
+                } else if (name.toLowerCase().contains('aramis')) {
                   displayName = 'Aramis-2B-BitNet-b1.58 (Диалоговая)';
                 } else if (name.toLowerCase().contains('bifrost')) {
                   displayName = 'BitNet-b1.58-Bifrost-2B';
@@ -361,33 +356,24 @@ class BitNetState extends ChangeNotifier {
       }
     }
     _models.removeWhere((m) =>
-        !m.filename.startsWith('builtin://') &&
         m.filename.isNotEmpty &&
         !File(m.filename).existsSync());
 
     _models.removeWhere((m) =>
-        m.filename.endsWith('ggml-model-i2_s.gguf') ||
-        m.name.contains('Microsoft Research') ||
-        m.name.contains('2B-4T') ||
         m.name.toLowerCase().contains('m7-70m') ||
         m.name.toLowerCase().contains('smollm') ||
-        m.name.toLowerCase().contains('b1_58-large'));
-
-    if (!_models.any((m) => m.filename.startsWith('builtin://'))) {
-      _models.insert(0, ModelItem.builtin);
-    }
+        m.name.toLowerCase().contains('b1_58-large') ||
+        m.filename.startsWith('builtin://'));
 
     if (_activeModel.filename.isNotEmpty &&
-        !_activeModel.filename.startsWith('builtin://') &&
         !File(_activeModel.filename).existsSync()) {
-      _activeModel = _models.isNotEmpty ? _models.first : ModelItem.builtin;
+      _activeModel = _models.isNotEmpty ? _models.first : ModelItem.empty;
     }
-    
-    // If external models exist and active model is still the fallback builtin, switch to external model!
-    if (_activeModel.filename.startsWith('builtin://') && foundFiles.isNotEmpty) {
-      loadModel(foundFiles.first);
-    } else if (!_activeModel.isLoaded && _models.isNotEmpty) {
+
+    if (!_activeModel.isLoaded && _models.isNotEmpty) {
       loadModel(_models.first);
+    } else if (_models.isEmpty) {
+      _activeModel = ModelItem.empty;
     }
 
     notifyListeners();

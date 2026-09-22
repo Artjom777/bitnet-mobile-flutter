@@ -60,25 +60,71 @@ class RussianSkillService {
     return _translateText(trimmed, sourceLang: 'ru', targetLang: 'en');
   }
 
-  /// Core translation routine with chunking and fallback
+  /// Core translation routine with chunking and code block isolation
   Future<String?> _translateText(
     String text, {
     required String sourceLang,
     required String targetLang,
   }) async {
-    // 1. Preserve markdown code blocks and inline code
-    final codeBlocks = <String>[];
-    final textWithoutCode = text.replaceAllMapped(
-      RegExp(r'```[\s\S]*?```|`[^`\n]+`'),
-      (match) {
-        final placeholder = '__CODE_BLOCK_${codeBlocks.length}__';
-        codeBlocks.add(match.group(0)!);
-        return placeholder;
-      },
-    );
+    var normalizedText = text;
+    final fenceCount = RegExp(r'```').allMatches(normalizedText).length;
+    if (fenceCount % 2 != 0) {
+      normalizedText = '$normalizedText\n```';
+    }
 
-    // 2. Break down into paragraphs
-    final paragraphs = textWithoutCode.split('\n');
+    final codeBlockRegex = RegExp(r'```[\s\S]*?```');
+    final matches = codeBlockRegex.allMatches(normalizedText);
+
+    if (matches.isEmpty) {
+      return _translateProse(normalizedText, sourceLang: sourceLang, targetLang: targetLang);
+    }
+
+    final buffer = StringBuffer();
+    int lastIndex = 0;
+
+    for (final match in matches) {
+      if (match.start > lastIndex) {
+        final prose = normalizedText.substring(lastIndex, match.start);
+        if (prose.trim().isNotEmpty) {
+          final trans = await _translateProse(prose, sourceLang: sourceLang, targetLang: targetLang);
+          buffer.write(trans ?? prose);
+        } else {
+          buffer.write(prose);
+        }
+      }
+      // Write the code block 100% untranslated (preserves def, for, if, python syntax intact)
+      buffer.write(match.group(0));
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < normalizedText.length) {
+      final prose = normalizedText.substring(lastIndex);
+      if (prose.trim().isNotEmpty) {
+        final trans = await _translateProse(prose, sourceLang: sourceLang, targetLang: targetLang);
+        buffer.write(trans ?? prose);
+      } else {
+        buffer.write(prose);
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  /// Translate regular prose without code blocks
+  Future<String?> _translateProse(
+    String prose, {
+    required String sourceLang,
+    required String targetLang,
+  }) async {
+    // Preserve inline code fragments `code`
+    final inlineSnippets = <String>[];
+    final textWithoutInline = prose.replaceAllMapped(RegExp(r'`[^`\n]+`'), (m) {
+      final placeholder = '§§CODE${inlineSnippets.length}§§';
+      inlineSnippets.add(m.group(0)!);
+      return placeholder;
+    });
+
+    final paragraphs = textWithoutInline.split('\n');
     final translatedParagraphs = <String>[];
 
     for (final para in paragraphs) {
@@ -88,14 +134,12 @@ class RussianSkillService {
         continue;
       }
 
-      // If paragraph is within reasonable size (under 1200 chars), translate as a whole
       if (trimmedPara.length <= 1200) {
         final trans = await _translateChunk(trimmedPara, sourceLang: sourceLang, targetLang: targetLang);
         translatedParagraphs.add(trans ?? trimmedPara);
         continue;
       }
 
-      // Otherwise split by sentence boundaries
       final sentences = trimmedPara.split(RegExp(r'(?<=[.!?])\s+'));
       final chunks = <String>[];
       var currentChunk = '';
@@ -128,14 +172,14 @@ class RussianSkillService {
 
     var result = translatedParagraphs.join('\n');
 
-    // 3. Restore preserved code blocks
-    for (int i = 0; i < codeBlocks.length; i++) {
-      result = result.replaceAll('__CODE_BLOCK_${i}__', codeBlocks[i]);
+    for (int i = 0; i < inlineSnippets.length; i++) {
+      result = result.replaceAll('§§CODE${i}§§', inlineSnippets[i]);
+      result = result.replaceAll('§§ CODE${i} §§', inlineSnippets[i]);
+      result = result.replaceAll('§§ code${i} §§', inlineSnippets[i]);
     }
 
-    if (result.trim() == text.trim() && targetLang == 'ru' && isPrimarilyEnglish(result)) {
-      // If network translation failed, use offline dictionary translator
-      return _offlineFallbackTranslate(text, toRussian: true);
+    if (result.trim() == prose.trim() && targetLang == 'ru' && isPrimarilyEnglish(result)) {
+      return _offlineFallbackTranslate(prose, toRussian: true);
     }
 
     return result;

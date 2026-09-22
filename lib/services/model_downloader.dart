@@ -26,6 +26,8 @@ class ModelDownloader {
   static const Map<String, String> officialModels = {
     'Aramis-2B-BitNet-b1.58 (Диалоговая i2_s, 1.15 ГБ) — Для диалогов и чата':
         'https://huggingface.co/jpacifico/Aramis-2B-BitNet-b1.58-i2s-GGUF/resolve/main/aramis-ggml-model-i2_s.gguf',
+    'BitNet-b1.58-2B-4T (Microsoft Research i2_s, 1.15 ГБ) — Базовый чекпоинт':
+        'https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf',
     'BitNet-b1.58-Bifrost-2B (Оптимизированная i2_s, 1.15 ГБ)':
         'https://huggingface.co/Bifrost-AI/Bitnet-b1.58-Bifrost-SOL-2B-4T-gguf/resolve/main/bifrost-bitnet-158b-2B-4T-I2_S.gguf',
   };
