@@ -1071,8 +1071,8 @@ void BitNetEngine::forward_token(int token, int pos, float* out_logits) {
         lay.w_gate.matvec(norm_buf.data(), gate.data(), config_.n_threads);
         lay.w_up.matvec(norm_buf.data(), up.data(), config_.n_threads);
 
-        // SwiGLU: SiLU(gate) * up
-        bitnet_swiglu(gate.data(), up.data(), hidden_dim);
+        // BitNet b1.58 Squared ReLU activation: ReLU²(gate) * up
+        bitnet_relu2_mul(gate.data(), up.data(), hidden_dim);
 
         // FFN Sub-Norm if present
         if (!lay.ffn_sub_norm.empty()) {
@@ -1274,8 +1274,13 @@ int BitNetEngine::generate_stream(
     stop_requested_.store(false);
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // 1. Direct prompt tokenization without synthetic templates
+    // 1. Prompt formatting with model native chat template
     std::string formatted_prompt = prompt;
+    if (formatted_prompt.find("Human:") == std::string::npos &&
+        formatted_prompt.find("<|user|>") == std::string::npos &&
+        formatted_prompt.find("<|im_start|>") == std::string::npos) {
+        formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
+    }
 
     std::vector<int> prompt_tokens;
     tokenize(formatted_prompt, prompt_tokens);

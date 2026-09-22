@@ -8,14 +8,14 @@
 #include <arm_neon.h>
 #endif
 
-// 1.58-bit ternary values encoded in 2 bits:
-// 0b00 = 0
-// 0b01 = +1
-// 0b10 = -1
-// 0b11 = reserved / unused
-#define BITNET_WEIGHT_ZERO 0
-#define BITNET_WEIGHT_POS  1
-#define BITNET_WEIGHT_NEG  2
+// 1.58-bit ternary values encoded in 2 bits in Microsoft BitNet (i2_s / mad):
+// 0b00 (0) = -1
+// 0b01 (1) = 0 (sparse zero weights)
+// 0b10 (2) = +1
+// 0b11 (3) = 0 (unused)
+#define BITNET_WEIGHT_NEG  0
+#define BITNET_WEIGHT_ZERO 1
+#define BITNET_WEIGHT_POS  2
 
 // Quantize activations to int8 with dynamic scaling
 void bitnet_quantize_activations(const float* input, int8_t* output, float* scale, int n);
@@ -51,7 +51,10 @@ void bitnet_rmsnorm(float* x, const float* weight, int size, float eps);
 // Softmax
 void bitnet_softmax(float* x, int size);
 
-// SwiGLU activation: gate = silu(gate) * up
+// Squared ReLU activation for BitNet b1.58 (2B4T / bitnet-25): gate = (max(0, gate)^2) * up
+void bitnet_relu2_mul(float* gate, const float* up, int size);
+
+// SwiGLU activation fallback: gate = silu(gate) * up
 void bitnet_swiglu(float* gate, const float* up, int size);
 
 // Rotary Position Embeddings (RoPE)
