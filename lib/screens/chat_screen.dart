@@ -830,25 +830,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       code: msg.codeSnippet!,
                     ),
                   ],
-                  if (msg.isStreaming) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 14,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Генерация локальным ядром...',
-                          style: TextStyle(
-                            fontFamily: AppTypography.monoFont,
-                            fontSize: 11,
-                            color: AppColors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+                  if (msg.isStreaming && msg.text.isEmpty) ...[
+                    Container(
+                      width: 8,
+                      height: 16,
+                      color: AppColors.primary,
                     ),
                   ],
                 ],

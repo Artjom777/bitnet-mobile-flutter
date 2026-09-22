@@ -445,19 +445,19 @@ class BitNetState extends ChangeNotifier {
     final isRussianInput = RussianSkillService.instance.containsCyrillic(prompt);
     final useRussianSkill = _settings.russianSkillEnabled;
 
-    final effectivePrompt = useRussianSkill
-        ? RussianSkillService.instance.formatRussianSkillPrompt(
-            userPrompt: prompt,
-            systemPrompt: _settings.systemPrompt,
-            isEnglishOnlyModel: true,
-          )
-        : prompt;
+    String promptToSend = prompt.trim();
+    if (useRussianSkill && isRussianInput) {
+      final translatedPrompt = await RussianSkillService.instance.translateToEnglish(prompt);
+      if (translatedPrompt != null && translatedPrompt.trim().isNotEmpty) {
+        promptToSend = translatedPrompt.trim();
+      }
+    }
 
     if (useRussianSkill) {
       _terminalLogs.add({
         'tag': 'russian_skill',
         'color': 'primary',
-        'text': 'активирован навык русского языка (полиглот-мост для модели ${_activeModel.name})',
+        'text': 'активирован навык русского языка (прямой перевод запроса без шаблонов)',
       });
     }
 
@@ -474,7 +474,7 @@ class BitNetState extends ChangeNotifier {
 
     try {
       final tokenStream = BitNetFFI.instance.generateStream(
-        effectivePrompt,
+        promptToSend,
         maxTokens: _settings.maxTokens,
         temperature: _settings.temperature,
         topP: _settings.topP,

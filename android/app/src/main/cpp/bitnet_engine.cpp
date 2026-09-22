@@ -782,7 +782,7 @@ int BitNetEngine::tokenize(const std::string& text, std::vector<int>& tokens) {
     const std::string sp_space = "\xe2\x96\x81";
     const std::string bpe_space = "\xc4\xa0"; // 'Ġ'
 
-    bool is_gpt2_bpe = (config_.tokenizer_model == "gpt2");
+    bool is_gpt2_bpe = (config_.tokenizer_model == "gpt2" || token_to_id_.find(bpe_space) != token_to_id_.end());
     bool use_sp = (!is_gpt2_bpe && (token_to_id_.find(sp_space) != token_to_id_.end() || config_.tokenizer_model == "llama"));
 
     std::string norm_text;
@@ -868,7 +868,8 @@ std::string BitNetEngine::token_to_str(int token_id) {
         }
     }
 
-    bool is_gpt2_bpe = (config_.tokenizer_model == "gpt2");
+    const std::string bpe_space = "\xc4\xa0"; // 'Ġ'
+    bool is_gpt2_bpe = (config_.tokenizer_model == "gpt2" || token_to_id_.find(bpe_space) != token_to_id_.end());
     std::string text;
     if (is_gpt2_bpe) {
         for (size_t i = 0; i < raw.size(); ) {
@@ -1273,17 +1274,8 @@ int BitNetEngine::generate_stream(
     stop_requested_.store(false);
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // 1. Format and tokenize prompt using model-appropriate template
+    // 1. Direct prompt tokenization without synthetic templates
     std::string formatted_prompt = prompt;
-    if (formatted_prompt.find("<|im_start|>") == std::string::npos &&
-        formatted_prompt.find("Human:") == std::string::npos &&
-        formatted_prompt.find("BITNETAssistant:") == std::string::npos) {
-        if (token_to_id_.find("<|im_start|>") != token_to_id_.end()) {
-            formatted_prompt = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n" + prompt + "<|im_end|>\n<|im_start|>assistant\n";
-        } else {
-            formatted_prompt = "Human: " + prompt + "\n\nBITNETAssistant: ";
-        }
-    }
 
     std::vector<int> prompt_tokens;
     tokenize(formatted_prompt, prompt_tokens);
