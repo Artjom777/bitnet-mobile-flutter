@@ -1335,6 +1335,31 @@ int BitNetEngine::generate_stream(
             break;
         }
 
+        // Multi-token cycle suppression (detect repeating 2-to-6 token n-grams)
+        if (history.size() >= 12) {
+            bool cycled = false;
+            for (int cycle_len = 2; cycle_len <= 6; ++cycle_len) {
+                if (history.size() >= static_cast<size_t>(cycle_len * 2 + 1)) {
+                    bool match = true;
+                    for (int k = 0; k < cycle_len; ++k) {
+                        int idx1 = static_cast<int>(history.size()) - 1 - k;
+                        int idx2 = static_cast<int>(history.size()) - 1 - cycle_len - k;
+                        if (history[idx1] != history[idx2]) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match && next_token == history[history.size() - cycle_len]) {
+                        cycled = true;
+                        break;
+                    }
+                }
+            }
+            if (cycled) {
+                break;
+            }
+        }
+
         // Check EOS condition
         if (next_token == eos_token_id_ || next_token == 2 || next_token == 128001 || next_token == 128009) {
             break;

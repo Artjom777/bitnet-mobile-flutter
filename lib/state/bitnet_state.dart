@@ -537,6 +537,14 @@ class BitNetState extends ChangeNotifier {
         finalText = 'Модель BitNet готова к работе. Задайте вопрос на русском языке.';
       }
 
+      // Intercept degenerative babble / stock crawler hallucinations from raw base models
+      if (_isHallucinatoryBabble(rawText) || _isHallucinatoryBabble(finalText)) {
+        finalText = '⚠️ Модель выдала несвязный поток базовых токенов.\n\n'
+            'Текущая модель (${_activeModel.name}) — это сырой базовый чекпоинт без диалоговой настройки. '
+            'Для качественного диалога перейдите во вкладку «Модели» и выберите «BitNet-b1.58-2B-4T (Microsoft Research)».';
+        isTranslated = false;
+      }
+
       final idx = _messages.indexWhere((m) => m.id == asstId);
       if (idx != -1) {
         _messages[idx] = _messages[idx].copyWith(
@@ -599,6 +607,34 @@ class BitNetState extends ChangeNotifier {
   }
 
 
+
+  bool _isHallucinatoryBabble(String text) {
+    if (text.length < 90) return false;
+    final words = text.split(RegExp(r'\s+'));
+    if (words.length > 25) {
+      // 1. Missing sentence ending punctuation
+      final punctuationCount = RegExp(r'[.!?\n]').allMatches(text).length;
+      if (punctuationCount <= 1 && words.length > 35) {
+        return true;
+      }
+      // 2. High repetition rate of repetitive keywords
+      final wordFreq = <String, int>{};
+      for (final w in words) {
+        final clean = w.toLowerCase().replaceAll(RegExp(r'[^a-zA-Zа-яА-Я0-9]'), '');
+        if (clean.length >= 3) {
+          wordFreq[clean] = (wordFreq[clean] ?? 0) + 1;
+        }
+      }
+      int highFreqCount = 0;
+      wordFreq.forEach((_, count) {
+        if (count >= 4) highFreqCount += count;
+      });
+      if (highFreqCount > words.length * 0.28) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   @override
   void dispose() {
