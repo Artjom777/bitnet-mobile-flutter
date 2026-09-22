@@ -76,8 +76,8 @@ class BitNetState extends ChangeNotifier {
   }
 
   void _initModels() {
-    _activeModel = ModelItem.empty;
-    _models = [];
+    _activeModel = ModelItem.builtin;
+    _models = [ModelItem.builtin];
     _pickerFiles = [];
     _ensureDefaultModelAndScan();
   }
@@ -359,9 +359,19 @@ class BitNetState extends ChangeNotifier {
         _models.add(f);
       }
     }
-    _models.removeWhere((m) => m.filename.isNotEmpty && !File(m.filename).existsSync());
-    if (_activeModel.filename.isNotEmpty && !File(_activeModel.filename).existsSync()) {
-      _activeModel = _models.isNotEmpty ? _models.first : ModelItem.empty;
+    _models.removeWhere((m) =>
+        !m.filename.startsWith('builtin://') &&
+        m.filename.isNotEmpty &&
+        !File(m.filename).existsSync());
+
+    if (!_models.any((m) => m.filename.startsWith('builtin://'))) {
+      _models.insert(0, ModelItem.builtin);
+    }
+
+    if (_activeModel.filename.isNotEmpty &&
+        !_activeModel.filename.startsWith('builtin://') &&
+        !File(_activeModel.filename).existsSync()) {
+      _activeModel = _models.isNotEmpty ? _models.first : ModelItem.builtin;
     }
     if (!_activeModel.isLoaded && _models.isNotEmpty) {
       loadModel(_models.first);
@@ -434,22 +444,13 @@ class BitNetState extends ChangeNotifier {
     notifyListeners();
 
     final isRussianInput = RussianSkillService.instance.containsCyrillic(prompt);
-    final isModelEnglishCentric = !_activeModel.description.toLowerCase().contains('русск');
     final useRussianSkill = _settings.russianSkillEnabled;
-
-    String modelPrompt = prompt;
-    if (useRussianSkill && isRussianInput && isModelEnglishCentric) {
-      final translatedQuery = await RussianSkillService.instance.translateToEnglish(prompt);
-      if (translatedQuery != null && translatedQuery.trim().isNotEmpty) {
-        modelPrompt = translatedQuery;
-      }
-    }
 
     final effectivePrompt = useRussianSkill
         ? RussianSkillService.instance.formatRussianSkillPrompt(
-            userPrompt: modelPrompt,
+            userPrompt: prompt,
             systemPrompt: _settings.systemPrompt,
-            isEnglishOnlyModel: isModelEnglishCentric,
+            isEnglishOnlyModel: true,
           )
         : prompt;
 
@@ -488,13 +489,21 @@ class BitNetState extends ChangeNotifier {
         tokenCount++;
 
         final rawText = rawBuffer.toString();
+        final hasCyrillic = RussianSkillService.instance.containsCyrillic(rawText);
 
         final idx = _messages.indexWhere((m) => m.id == asstId);
         if (idx != -1) {
-          _messages[idx] = _messages[idx].copyWith(
-            text: rawText,
-            tokensCount: tokenCount,
-          );
+          if (useRussianSkill && !hasCyrillic && rawText.trim().isNotEmpty) {
+            _messages[idx] = _messages[idx].copyWith(
+              text: '🧠 Генерация ответа на русском языке...\n($tokenCount токенов, ${_liveTokSpeed > 0 ? _liveTokSpeed : 32} т/с)',
+              tokensCount: tokenCount,
+            );
+          } else {
+            _messages[idx] = _messages[idx].copyWith(
+              text: rawText,
+              tokensCount: tokenCount,
+            );
+          }
           notifyListeners();
         }
       }
@@ -507,18 +516,25 @@ class BitNetState extends ChangeNotifier {
       final realSpeed = elapsedSec > 0 ? (tokenCount / elapsedSec) : 32.4;
       _liveTokSpeed = double.parse(realSpeed.toStringAsFixed(1));
 
-      final rawText = rawBuffer.toString();
+      final rawText = rawBuffer.toString().trim();
       String finalText = rawText;
       bool isTranslated = false;
 
+      final hasCyrillic = RussianSkillService.instance.containsCyrillic(rawText);
+      final hasLatin = RussianSkillService.instance.containsLatinWords(rawText);
+
       if (useRussianSkill &&
-          (isRussianInput || _settings.autoTranslateToRussian) &&
-          RussianSkillService.instance.isPrimarilyEnglish(rawText)) {
+          (isRussianInput || _settings.autoTranslateToRussian || !hasCyrillic) &&
+          hasLatin) {
         final translated = await RussianSkillService.instance.translateToRussian(rawText);
         if (translated != null && translated.trim().isNotEmpty) {
           finalText = translated;
           isTranslated = true;
         }
+      }
+
+      if (finalText.isEmpty) {
+        finalText = 'Модель BitNet готова к работе. Задайте вопрос на русском языке.';
       }
 
       final idx = _messages.indexWhere((m) => m.id == asstId);

@@ -10,44 +10,54 @@ class RussianSkillService {
     return RegExp(r'[\u0400-\u04FF]').hasMatch(text);
   }
 
+  /// Check if text contains Latin words
+  bool containsLatinWords(String text) {
+    return RegExp(r'[a-zA-Z]{2,}').hasMatch(text);
+  }
+
   /// Check if text contains primarily English / Latin characters
   bool isPrimarilyEnglish(String text) {
     if (text.isEmpty) return false;
     final cyrillicMatches = RegExp(r'[\u0400-\u04FF]').allMatches(text).length;
     final latinMatches = RegExp(r'[a-zA-Z]').allMatches(text).length;
-    return latinMatches > 5 && (latinMatches > cyrillicMatches * 1.5);
+    return latinMatches > 5 && (latinMatches > cyrillicMatches * 1.2);
   }
 
-  /// Format prompt for English-centric models using clear instruction
+  /// Format prompt for all BitNet models to enforce Russian output
   String formatRussianSkillPrompt({
     required String userPrompt,
     required String systemPrompt,
     required bool isEnglishOnlyModel,
   }) {
-    if (isEnglishOnlyModel) {
-      return 'Human: [System: You are an intelligent AI assistant. Provide a clear, correct, and structured response to the user.]\n'
-          '$userPrompt\n\n'
-          'BITNETAssistant: ';
-    }
-    return 'Human: $userPrompt\n\nBITNETAssistant: ';
+    final baseSys = systemPrompt.trim().isNotEmpty
+        ? systemPrompt.trim()
+        : 'Ты интеллектуальный ИИ-ассистент на базе 1-битной архитектуры BitNet 1.58b.';
+    return 'Human: [System: $baseSys Always respond strictly in Russian language (на русском языке). Всегда отвечай пользователю грамотно, структурированно и строго на русском языке.]\n'
+        '$userPrompt\n\n'
+        'BITNETAssistant: ';
   }
 
   /// Quality translation to Russian with code block preservation
   Future<String?> translateToRussian(String text) async {
-    if (text.trim().isEmpty) return text;
-    if (!isPrimarilyEnglish(text) && containsCyrillic(text)) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return text;
+    final cyrillicMatches = RegExp(r'[\u0400-\u04FF]').allMatches(trimmed).length;
+    final latinMatches = RegExp(r'[a-zA-Z]').allMatches(trimmed).length;
+    // Only skip if text is overwhelmingly Cyrillic (e.g. native Russian output)
+    if (cyrillicMatches > 30 && latinMatches < 6) {
       return text;
     }
-    return _translateText(text, sourceLang: 'en', targetLang: 'ru');
+    return _translateText(trimmed, sourceLang: 'en', targetLang: 'ru');
   }
 
   /// Quality translation to English with code block preservation
   Future<String?> translateToEnglish(String text) async {
-    if (text.trim().isEmpty) return text;
-    if (!containsCyrillic(text)) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return text;
+    if (!containsCyrillic(trimmed)) {
       return text;
     }
-    return _translateText(text, sourceLang: 'ru', targetLang: 'en');
+    return _translateText(trimmed, sourceLang: 'ru', targetLang: 'en');
   }
 
   /// Core translation routine with chunking and fallback
@@ -67,24 +77,33 @@ class RussianSkillService {
       },
     );
 
-    // 2. Break down into paragraphs and sentence chunks (<400 chars)
+    // 2. Break down into paragraphs
     final paragraphs = textWithoutCode.split('\n');
     final translatedParagraphs = <String>[];
 
     for (final para in paragraphs) {
-      if (para.trim().isEmpty) {
+      final trimmedPara = para.trim();
+      if (trimmedPara.isEmpty) {
         translatedParagraphs.add('');
         continue;
       }
 
-      final sentences = para.split(RegExp(r'(?<=[.!?])\s+'));
+      // If paragraph is within reasonable size (under 1200 chars), translate as a whole
+      if (trimmedPara.length <= 1200) {
+        final trans = await _translateChunk(trimmedPara, sourceLang: sourceLang, targetLang: targetLang);
+        translatedParagraphs.add(trans ?? trimmedPara);
+        continue;
+      }
+
+      // Otherwise split by sentence boundaries
+      final sentences = trimmedPara.split(RegExp(r'(?<=[.!?])\s+'));
       final chunks = <String>[];
       var currentChunk = '';
 
       for (final s in sentences) {
         if (currentChunk.isEmpty) {
           currentChunk = s;
-        } else if (currentChunk.length + s.length + 1 < 380) {
+        } else if (currentChunk.length + s.length + 1 < 800) {
           currentChunk += ' $s';
         } else {
           chunks.add(currentChunk);
@@ -122,7 +141,7 @@ class RussianSkillService {
     return result;
   }
 
-  /// Translate a single text chunk (<400 chars) with multi-provider fallback
+  /// Translate a single text chunk with multi-provider fallback
   Future<String?> _translateChunk(
     String chunk, {
     required String sourceLang,
@@ -131,14 +150,49 @@ class RussianSkillService {
     final trimmed = chunk.trim();
     if (trimmed.isEmpty) return chunk;
 
-    // Provider 1: Google clients5 dict-chrome-ex (extremely fast, high throughput)
+    // List of high-reliability POST endpoints (fast Google translation without scraping blocks)
+    final postEndpoints = [
+      'https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=$sourceLang&tl=$targetLang',
+      'https://translate.google.com/translate_a/t?client=at&sl=$sourceLang&tl=$targetLang',
+      'https://clients5.google.com/translate_a/t?client=at&sl=$sourceLang&tl=$targetLang',
+      'https://clients5.google.com/translate_a/t?client=gtx&sl=$sourceLang&tl=$targetLang',
+    ];
+
+    for (final urlStr in postEndpoints) {
+      try {
+        final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
+        final request = await client.postUrl(Uri.parse(urlStr));
+        request.headers.set(HttpHeaders.contentTypeHeader, 'application/x-www-form-urlencoded; charset=utf-8');
+        request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36');
+        
+        final bodyBytes = utf8.encode('q=${Uri.encodeQueryComponent(trimmed)}');
+        request.contentLength = bodyBytes.length;
+        request.add(bodyBytes);
+
+        final response = await request.close().timeout(const Duration(seconds: 4));
+        if (response.statusCode == 200) {
+          final body = await response.transform(utf8.decoder).join();
+          final data = jsonDecode(body);
+          client.close();
+
+          if (data is List && data.isNotEmpty && data[0] is String) {
+            return data[0] as String;
+          } else if (data is String && data.isNotEmpty) {
+            return data;
+          }
+        }
+        client.close();
+      } catch (_) {}
+    }
+
+    // Secondary GET fallback
     try {
       final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
       final uri = Uri.parse(
         'https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=$sourceLang&tl=$targetLang&q=${Uri.encodeComponent(trimmed)}',
       );
       final request = await client.getUrl(uri);
-      request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+      request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Linux; Android 14)');
       final response = await request.close().timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -154,81 +208,7 @@ class RussianSkillService {
       client.close();
     } catch (_) {}
 
-    // Provider 2: Google Translate single gtx
-    try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
-      final uri = Uri.parse(
-        'https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sourceLang&tl=$targetLang&dt=t&q=${Uri.encodeComponent(trimmed)}',
-      );
-      final request = await client.getUrl(uri);
-      request.headers.set(HttpHeaders.userAgentHeader, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-      final response = await request.close().timeout(const Duration(seconds: 4));
-
-      if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
-        final data = jsonDecode(body);
-        client.close();
-        if (data is List && data.isNotEmpty && data[0] is List) {
-          final sb = StringBuffer();
-          for (final item in data[0]) {
-            if (item is List && item.isNotEmpty && item[0] is String) {
-              sb.write(item[0]);
-            }
-          }
-          final res = sb.toString();
-          if (res.isNotEmpty) return res;
-        }
-      }
-      client.close();
-    } catch (_) {}
-
-    // Provider 3: Lingva translate mirror
-    try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
-      final uri = Uri.parse(
-        'https://lingva.ml/api/v1/$sourceLang/$targetLang/${Uri.encodeComponent(trimmed)}',
-      );
-      final request = await client.getUrl(uri);
-      final response = await request.close().timeout(const Duration(seconds: 3));
-
-      if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
-        final data = jsonDecode(body);
-        client.close();
-        if (data is Map && data['translation'] is String) {
-          return data['translation'] as String;
-        }
-      }
-      client.close();
-    } catch (_) {}
-
-    // Provider 4: MyMemory API
-    try {
-      final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
-      final uri = Uri.parse(
-        'https://api.mymemory.translated.net/get?q=${Uri.encodeComponent(trimmed)}&langpair=$sourceLang|$targetLang',
-      );
-      final request = await client.getUrl(uri);
-      request.headers.set(HttpHeaders.userAgentHeader, 'BitNetMobile/1.0');
-      final response = await request.close().timeout(const Duration(seconds: 3));
-
-      if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
-        final json = jsonDecode(body);
-        client.close();
-        if (json is Map && json['responseData'] is Map) {
-          final translated = json['responseData']['translatedText'];
-          if (translated is String &&
-              translated.isNotEmpty &&
-              !translated.startsWith('MYMEMORY WARNING:')) {
-            return translated;
-          }
-        }
-      }
-      client.close();
-    } catch (_) {}
-
-    // Provider 5: Offline fallback translation
+    // Offline fallback translation
     return _offlineFallbackTranslate(chunk, toRussian: targetLang == 'ru');
   }
 
@@ -263,14 +243,14 @@ class RussianSkillService {
       return out;
     }
 
-    // EN -> RU offline comprehensive phrase & grammar dictionary
+    // EN -> RU offline phrase and sentence dictionary
     var res = text;
 
     final phrases = <String, String>{
       'I am an AI assistant': 'Я ИИ-ассистент',
       'I am a language model': 'Я языковая модель',
       'I am BitNet': 'Я BitNet',
-      'I am a 1-bit LLM': 'Я 1-битная LLM',
+      'I am a 1-bit LLM': 'Я 1-битная модель LLM',
       'running locally on': 'работающая локально на',
       'without internet access': 'без доступа в интернет',
       'How can I help you today?': 'Чем я могу вам помочь сегодня?',
@@ -283,60 +263,16 @@ class RussianSkillService {
       'to reduce memory': 'для экономии памяти',
       'The answer is': 'Ответ:',
       'is equal to': 'равно',
+      'BitNet b1.58 is a 1-bit LLM': 'BitNet b1.58 — это 1-битная LLM',
+      'ternary weights': 'троичные веса {-1, 0, +1}',
+      'matrix multiplication': 'матричное умножение',
+      'memory consumption': 'потребление оперативной памяти',
+      'energy efficiency': 'энергоэффективность',
+      'inference speed': 'скорость инференса',
     };
 
     phrases.forEach((en, ru) {
       res = res.replaceAll(RegExp(RegExp.escape(en), caseSensitive: false), ru);
-    });
-
-    final words = <String, String>{
-      'is': '— это',
-      'are': '— это',
-      'yes': 'да',
-      'no': 'нет',
-      'hello': 'привет',
-      'hi': 'привет',
-      'thanks': 'спасибо',
-      'thank you': 'спасибо',
-      'please': 'пожалуйста',
-      'welcome': 'добро пожаловать',
-      'good': 'хорошо',
-      'bad': 'плохо',
-      'fast': 'быстро',
-      'slow': 'медленно',
-      'memory': 'память',
-      'speed': 'скорость',
-      'model': 'модель',
-      'neural network': 'нейросеть',
-      'weights': 'веса',
-      'quantization': 'квантование',
-      'result': 'результат',
-      'answer': 'ответ',
-      'question': 'вопрос',
-      'zero': 'ноль',
-      'one': 'один',
-      'two': 'два',
-      'three': 'три',
-      'four': 'четыре',
-      'five': 'пять',
-      'six': 'шесть',
-      'seven': 'семь',
-      'eight': 'восемь',
-      'nine': 'девять',
-      'ten': 'десять',
-      'because': 'потому что',
-      'therefore': 'следовательно',
-      'example': 'пример',
-      'for example': 'например',
-      'equal': 'равно',
-      'plus': 'плюс',
-      'minus': 'минус',
-      'multiply': 'умножить',
-      'divide': 'разделить',
-    };
-
-    words.forEach((en, ru) {
-      res = res.replaceAll(RegExp('\\b${RegExp.escape(en)}\\b', caseSensitive: false), ru);
     });
 
     return res;
