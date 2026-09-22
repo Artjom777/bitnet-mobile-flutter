@@ -84,9 +84,9 @@ FFI_EXPORT int bitnet_is_model_loaded() {
 }
 
 FFI_EXPORT void bitnet_stop_generation() {
-    std::lock_guard<std::mutex> lock(g_engine_mutex);
-    if (g_engine) {
-        g_engine->stop_generation();
+    BitNetEngine* engine = g_engine.get();
+    if (engine) {
+        engine->stop_generation();
     }
 }
 

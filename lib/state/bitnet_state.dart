@@ -397,8 +397,12 @@ class BitNetState extends ChangeNotifier {
 
   void stopGeneration() {
     if (_isGenerating) {
-      BitNetFFI.instance.stopGeneration();
       _isGenerating = false;
+      BitNetFFI.instance.stopGeneration();
+      final idx = _messages.indexWhere((m) => m.isStreaming);
+      if (idx != -1) {
+        _messages[idx] = _messages[idx].copyWith(isStreaming: false);
+      }
       _terminalLogs.add({
         'tag': 'bitnet_stop',
         'color': 'tertiary',
@@ -502,6 +506,7 @@ class BitNetState extends ChangeNotifier {
     } catch (e) {
       rawBuffer.write('\n[bitnet.cpp error: $e]');
     } finally {
+      final wasCancelled = !_isGenerating;
       _isGenerating = false;
       stopwatch.stop();
       final elapsedSec = stopwatch.elapsedMilliseconds / 1000.0;
@@ -515,7 +520,8 @@ class BitNetState extends ChangeNotifier {
       final hasCyrillic = RussianSkillService.instance.containsCyrillic(rawText);
       final hasLatin = RussianSkillService.instance.containsLatinWords(rawText);
 
-      if (useRussianSkill &&
+      if (!wasCancelled &&
+          useRussianSkill &&
           (isRussianInput || _settings.autoTranslateToRussian || !hasCyrillic) &&
           hasLatin) {
         final translated = await RussianSkillService.instance.translateToRussian(rawText);
@@ -525,14 +531,14 @@ class BitNetState extends ChangeNotifier {
         }
       }
 
-      if (finalText.isEmpty) {
-        finalText = 'Модель BitNet готова к работе. Задайте вопрос на русском языке.';
+      if (finalText.isEmpty && !wasCancelled) {
+        finalText = 'Модель завершила генерацию.';
       }
 
       final idx = _messages.indexWhere((m) => m.id == asstId);
       if (idx != -1) {
         _messages[idx] = _messages[idx].copyWith(
-          text: finalText,
+          text: finalText.isNotEmpty ? finalText : rawText,
           originalText: isTranslated ? rawText : null,
           isTranslated: isTranslated,
           isStreaming: false,
