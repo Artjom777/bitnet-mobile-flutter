@@ -283,8 +283,6 @@ class RussianSkillService {
       'to reduce memory': 'для экономии памяти',
       'The answer is': 'Ответ:',
       'is equal to': 'равно',
-      'is': '— это',
-      'are': '— это',
     };
 
     phrases.forEach((en, ru) {
@@ -292,6 +290,8 @@ class RussianSkillService {
     });
 
     final words = <String, String>{
+      'is': '— это',
+      'are': '— это',
       'yes': 'да',
       'no': 'нет',
       'hello': 'привет',

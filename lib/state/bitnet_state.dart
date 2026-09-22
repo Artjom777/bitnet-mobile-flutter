@@ -471,8 +471,6 @@ class BitNetState extends ChangeNotifier {
     final stopwatch = Stopwatch()..start();
     final rawBuffer = StringBuffer();
     int tokenCount = 0;
-    String streamedRussianText = '';
-    String pendingSentence = '';
 
     try {
       final tokenStream = BitNetFFI.instance.generateStream(
@@ -493,40 +491,10 @@ class BitNetState extends ChangeNotifier {
 
         final idx = _messages.indexWhere((m) => m.id == asstId);
         if (idx != -1) {
-          if (useRussianSkill && isRussianInput && isModelEnglishCentric) {
-            pendingSentence += token;
-            if (pendingSentence.contains(RegExp(r'[.!?\n]\s*')) && pendingSentence.length > 20) {
-              final toTrans = pendingSentence;
-              pendingSentence = '';
-              RussianSkillService.instance.translateToRussian(toTrans).then((transChunk) {
-                if (transChunk != null && transChunk.isNotEmpty) {
-                  streamedRussianText += '$transChunk ';
-                  final cur = _messages.indexWhere((m) => m.id == asstId);
-                  if (cur != -1 && _isGenerating) {
-                    _messages[cur] = _messages[cur].copyWith(
-                      text: '$streamedRussianText ▍',
-                      tokensCount: tokenCount,
-                    );
-                    notifyListeners();
-                  }
-                }
-              });
-            }
-
-            final displayText = streamedRussianText.isNotEmpty
-                ? '$streamedRussianText ▍'
-                : '🧠 Генерация ответа: $tokenCount токенов...';
-
-            _messages[idx] = _messages[idx].copyWith(
-              text: displayText,
-              tokensCount: tokenCount,
-            );
-          } else {
-            _messages[idx] = _messages[idx].copyWith(
-              text: rawText,
-              tokensCount: tokenCount,
-            );
-          }
+          _messages[idx] = _messages[idx].copyWith(
+            text: rawText,
+            tokensCount: tokenCount,
+          );
           notifyListeners();
         }
       }
