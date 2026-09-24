@@ -170,7 +170,7 @@ class StatusBanner extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'arm64 • ${state.hardwareTelemetry.activeThreads}T',
+                  'arm64 • ${state.settings.cpuThreads}T',
                   style: const TextStyle(
                     fontFamily: AppTypography.monoFont,
                     fontSize: 10,
