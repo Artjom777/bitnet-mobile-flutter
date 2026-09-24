@@ -28,7 +28,7 @@ class _MainShellState extends State<MainShell> {
         final currentTab = widget.state.currentTab;
 
         return Scaffold(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.appleBackground,
           body: Column(
             children: [
               // Top Persistent Header

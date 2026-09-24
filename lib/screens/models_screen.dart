@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_typography.dart';
 import '../models/model_item.dart';
 import '../state/bitnet_state.dart';
 import '../services/model_downloader.dart';
+import '../widgets/apple_pressable.dart';
 import 'file_picker_screen.dart';
 
 class ModelsScreen extends StatefulWidget {
@@ -30,7 +32,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Встроенное ядро BitNet невозможно удалить из системы'),
-          backgroundColor: AppColors.surfaceContainerHighest,
+          backgroundColor: AppColors.appleGlassCard,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -40,31 +42,70 @@ class _ModelsScreenState extends State<ModelsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainer,
-        title: const Text('Удаление модели', style: TextStyle(color: AppColors.onSurface, fontSize: 16)),
-        content: Text('Вы уверены, что хотите удалить модель ${model.name}?', style: const TextStyle(color: AppColors.onSurfaceVariant, fontSize: 13)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена', style: TextStyle(color: AppColors.onSurfaceVariant)),
+        backgroundColor: AppColors.appleGlassCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.appleGlassBorder, width: 0.6),
+        ),
+        title: const Text(
+          'Удаление модели',
+          style: TextStyle(
+            color: AppColors.appleLabel,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
           ),
-          ElevatedButton(
-            onPressed: () {
+        ),
+        content: Text(
+          'Вы уверены, что хотите удалить модель ${model.name}?',
+          style: const TextStyle(
+            color: AppColors.appleSecondaryLabel,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          ApplePressable(
+            onTap: () => Navigator.pop(ctx),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: const Text(
+                'Отмена',
+                style: TextStyle(
+                  color: AppColors.appleBlue,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          ApplePressable(
+            onTap: () {
               Navigator.pop(ctx);
               widget.state.deleteModel(model);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Модель ${model.name} удалена'),
-                  backgroundColor: AppColors.surfaceContainerHighest,
+                  backgroundColor: AppColors.appleGlassCard,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.errorContainer,
-              foregroundColor: AppColors.onErrorContainer,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.appleRed.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Удалить',
+                style: TextStyle(
+                  color: AppColors.appleRed,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            child: const Text('Удалить'),
           ),
         ],
       ),
@@ -366,17 +407,21 @@ class _ModelsScreenState extends State<ModelsScreen> {
                 const Text(
                   'Локальные модели',
                   style: TextStyle(
-                    fontFamily: AppTypography.sansFont,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onSurface,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                    color: AppColors.appleLabel,
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.secondaryContainer,
+                    color: AppColors.appleGlassSurface,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.appleGreen.withOpacity(0.35),
+                      width: 0.6,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -385,7 +430,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                         width: 6,
                         height: 6,
                         decoration: const BoxDecoration(
-                          color: AppColors.secondary,
+                          color: AppColors.appleGreen,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -396,7 +441,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                           fontFamily: AppTypography.monoFont,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.onSecondaryContainer,
+                          color: AppColors.appleGreen,
                         ),
                       ),
                     ],
@@ -404,45 +449,28 @@ class _ModelsScreenState extends State<ModelsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text.rich(
-              TextSpan(
-                text: 'Поддержка форматов ',
-                style: const TextStyle(
-                  fontFamily: AppTypography.sansFont,
-                  fontSize: 13,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                children: const [
-                  TextSpan(
-                    text: '.tl1',
-                    style: TextStyle(
-                      fontFamily: AppTypography.monoFont,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  TextSpan(text: ', '),
-                  TextSpan(
-                    text: '.gguf',
-                    style: TextStyle(
-                      fontFamily: AppTypography.monoFont,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  TextSpan(text: ' (1.58-bit ternary quant) для bitnet.cpp'),
-                ],
+            const SizedBox(height: 6),
+            const Text(
+              'Поддержка форматов .tl1, .gguf (1.58-бит троичное квантование) для bitnet.cpp',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                letterSpacing: -0.2,
+                color: AppColors.appleSecondaryLabel,
               ),
             ),
             const SizedBox(height: 14),
 
             // Hardware Kernel Optimization Banner
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(14),
+                color: AppColors.appleGlassCard,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: AppColors.appleGlassBorder,
+                  width: 0.6,
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -453,34 +481,34 @@ class _ModelsScreenState extends State<ModelsScreen> {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: AppColors.secondary.withOpacity(0.15),
+                          color: AppColors.appleTeal.withOpacity(0.16),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Icons.bolt,
+                          Icons.bolt_rounded,
                           size: 20,
-                          color: AppColors.secondary,
+                          color: AppColors.appleTeal,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text(
-                            'AVX2 / ARM NEON I8MM',
+                            'ARM NEON I8MM / AVX2',
                             style: TextStyle(
-                              fontFamily: AppTypography.sansFont,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.onSurface,
+                              letterSpacing: -0.2,
+                              color: AppColors.appleLabel,
                             ),
                           ),
+                          SizedBox(height: 1),
                           Text(
-                            'Троичные матричные вычисления ускорены',
+                            'Аппаратное ускорение троичных ядер',
                             style: TextStyle(
-                              fontFamily: AppTypography.sansFont,
                               fontSize: 11,
-                              color: AppColors.onSurfaceVariant,
+                              color: AppColors.appleSecondaryLabel,
                             ),
                           ),
                         ],
@@ -488,18 +516,18 @@ class _ModelsScreenState extends State<ModelsScreen> {
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppColors.secondaryFixed,
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.appleTeal.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Text(
                       'ВКЛ',
                       style: TextStyle(
                         fontFamily: AppTypography.monoFont,
                         fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.onSecondaryFixed,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.appleTeal,
                       ),
                     ),
                   ),
@@ -510,15 +538,19 @@ class _ModelsScreenState extends State<ModelsScreen> {
 
             // Prominent Import Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainer,
+                color: AppColors.appleGlassCard,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: AppColors.appleGlassBorder,
+                  width: 0.6,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
@@ -534,13 +566,13 @@ class _ModelsScreenState extends State<ModelsScreen> {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: AppColors.primaryContainer.withOpacity(0.25),
+                              color: AppColors.appleBlue.withOpacity(0.16),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: const Icon(
-                              Icons.add_circle_outline,
-                              size: 26,
-                              color: AppColors.primary,
+                              Icons.add_circle_outline_rounded,
+                              size: 24,
+                              color: AppColors.appleBlue,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -550,140 +582,153 @@ class _ModelsScreenState extends State<ModelsScreen> {
                               Text(
                                 'Добавить BitNet модель',
                                 style: TextStyle(
-                                  fontFamily: AppTypography.sansFont,
-                                  fontSize: 15,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.onSurface,
+                                  letterSpacing: -0.3,
+                                  color: AppColors.appleLabel,
                                 ),
                               ),
+                              SizedBox(height: 2),
                               Text(
-                                'Локальный квант или онлайн-репозиторий',
+                                'Локальный квант или Hugging Face',
                                 style: TextStyle(
-                                  fontFamily: AppTypography.sansFont,
-                                  fontSize: 11,
-                                  color: AppColors.onSurfaceVariant,
+                                  fontSize: 12,
+                                  color: AppColors.appleSecondaryLabel,
                                 ),
                               ),
                             ],
                           ),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: AppColors.surfaceContainerHighest,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.verified,
-                          size: 16,
-                          color: AppColors.onSurfaceVariant,
-                        ),
+                      const Icon(
+                        Icons.verified_rounded,
+                        size: 18,
+                        color: AppColors.appleBlue,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   // Storage path hint
-                  InkWell(
+                  ApplePressable(
                     onTap: () => widget.state.setTab(3),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.appleGlassSurface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.appleGlassHighlight, width: 0.6),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.folder_open, size: 16, color: AppColors.secondary),
-                          const SizedBox(width: 6),
+                          const Icon(Icons.folder_open_rounded, size: 16, color: AppColors.appleTeal),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               widget.state.settings.modelsDirectory,
                               style: const TextStyle(
                                 fontFamily: AppTypography.monoFont,
                                 fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
+                                color: AppColors.appleSecondaryLabel,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Icon(Icons.chevron_right, size: 16, color: AppColors.outline),
+                          const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.appleTertiaryLabel),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   // Action buttons
-                  ElevatedButton.icon(
-                    onPressed: _openFilePicker,
-                    icon: const Icon(Icons.file_open, size: 18),
-                    label: const Text(
-                      'Выбрать файл из памяти устройства',
-                      style: TextStyle(
-                        fontFamily: AppTypography.sansFont,
-                        fontWeight: FontWeight.w600,
+                  ApplePressable(
+                    onTap: _openFilePicker,
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: AppColors.appleBlue,
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.onPrimary,
-                      minimumSize: const Size(double.infinity, 46),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.file_open_rounded, size: 17, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            'Выбрать файл из памяти устройства',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: _showUrlDownloadDialog,
-                    icon: const Icon(Icons.cloud_download, size: 18, color: AppColors.tertiary),
-                    label: const Text(
-                      'Hugging Face / Загрузить по URL',
-                      style: TextStyle(
-                        fontFamily: AppTypography.sansFont,
-                        fontWeight: FontWeight.w500,
+                  ApplePressable(
+                    onTap: _showUrlDownloadDialog,
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.appleGlassSurface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.appleGlassHighlight, width: 0.6),
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surfaceContainerHighest,
-                      foregroundColor: AppColors.onSurface,
-                      minimumSize: const Size(double.infinity, 44),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cloud_download_rounded, size: 17, color: AppColors.appleTeal),
+                          SizedBox(width: 8),
+                          Text(
+                            'Hugging Face / Загрузить по URL',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.2,
+                              color: AppColors.appleLabel,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
 
             // Models List Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Установленные веса (${widget.state.models.length})',
-                  style: const TextStyle(
-                    fontFamily: AppTypography.sansFont,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                    color: AppColors.onSurfaceVariant,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'УСТАНОВЛЕННЫЕ ВЕСА (${widget.state.models.length})',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                      color: AppColors.appleSecondaryLabel,
+                    ),
                   ),
-                ),
-                Text(
-                  widget.state.models.isEmpty
-                      ? 'Хранилище: 0 МБ'
-                      : 'Моделей: ${widget.state.models.length}',
-                  style: const TextStyle(
-                    fontFamily: AppTypography.monoFont,
-                    fontSize: 11,
-                    color: AppColors.outline,
+                  Text(
+                    widget.state.models.isEmpty
+                        ? '0 моделей'
+                        : 'Моделей: ${widget.state.models.length}',
+                    style: const TextStyle(
+                      fontFamily: AppTypography.monoFont,
+                      fontSize: 11,
+                      color: AppColors.appleTertiaryLabel,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 10),
 
@@ -693,43 +738,58 @@ class _ModelsScreenState extends State<ModelsScreen> {
                 margin: const EdgeInsets.symmetric(vertical: 20),
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainer,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
+                  color: AppColors.appleGlassCard,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: AppColors.appleGlassBorder, width: 0.6),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.layers_clear, size: 48, color: AppColors.onSurfaceVariant),
+                    const Icon(Icons.layers_clear_rounded, size: 44, color: AppColors.appleTertiaryLabel),
                     const SizedBox(height: 12),
                     const Text(
                       'Модели не установлены',
                       style: TextStyle(
-                        fontFamily: AppTypography.sansFont,
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.onSurface,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                        color: AppColors.appleLabel,
                       ),
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'На накопителе нет загруженных моделей BitNet.\nНажмите «Hugging Face / Загрузить по URL» выше или выберите файл .tl1 / .gguf из проводника.',
+                      'На накопителе нет загруженных моделей BitNet.\nНажмите кнопку загрузки выше или импортируйте файл .tl1 / .gguf из проводника.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: AppTypography.sansFont,
                         fontSize: 12,
-                        color: AppColors.onSurfaceVariant,
+                        color: AppColors.appleSecondaryLabel,
                         height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _showUrlDownloadDialog,
-                      icon: const Icon(Icons.cloud_download, size: 16),
-                      label: const Text('Скачать модель (Hugging Face)'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.onPrimary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ApplePressable(
+                      onTap: _showUrlDownloadDialog,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.appleBlue,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.cloud_download_rounded, size: 16, color: Colors.white),
+                            SizedBox(width: 6),
+                            Text(
+                              'Скачать модель (Hugging Face)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -740,21 +800,47 @@ class _ModelsScreenState extends State<ModelsScreen> {
           ],
         ),
 
-        // Extended FAB Bottom Right
+        // Apple Floating Action Pill Bottom Right
         Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
-            onPressed: _openFilePicker,
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.onPrimary,
-            elevation: 8,
-            icon: const Icon(Icons.add),
-            label: const Text(
-              'Импорт модели',
-              style: TextStyle(
-                fontFamily: AppTypography.sansFont,
-                fontWeight: FontWeight.w600,
+          right: 20,
+          bottom: 20,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: ApplePressable(
+                onTap: _openFilePicker,
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.appleBlue,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.appleBlue.withOpacity(0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 18, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text(
+                        'Импорт',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -770,16 +856,19 @@ class _ModelsScreenState extends State<ModelsScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainer,
-        borderRadius: BorderRadius.circular(20),
-        border: isLoaded
-            ? Border.all(color: AppColors.primary.withOpacity(0.35), width: 1)
-            : null,
+        color: AppColors.appleGlassCard,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isLoaded
+              ? AppColors.appleTeal.withOpacity(0.45)
+              : AppColors.appleGlassBorder,
+          width: isLoaded ? 1.0 : 0.6,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -798,10 +887,10 @@ class _ModelsScreenState extends State<ModelsScreen> {
                     Text(
                       model.name,
                       style: const TextStyle(
-                        fontFamily: AppTypography.sansFont,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                        color: AppColors.appleLabel,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -809,26 +898,32 @@ class _ModelsScreenState extends State<ModelsScreen> {
                       'Архитектура: ${model.architecture}',
                       style: const TextStyle(
                         fontFamily: AppTypography.monoFont,
-                        fontSize: 10,
-                        color: AppColors.primary,
+                        fontSize: 11,
+                        color: AppColors.appleTeal,
                       ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: isLoaded
-                      ? AppColors.secondaryContainer
-                      : AppColors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
+                      ? AppColors.appleGreen.withOpacity(0.18)
+                      : AppColors.appleGlassSurface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isLoaded
+                        ? AppColors.appleGreen.withOpacity(0.35)
+                        : AppColors.appleGlassBorder,
+                    width: 0.5,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (isLoaded) ...[
-                      const Icon(Icons.check_circle, size: 12, color: AppColors.onSecondaryContainer),
+                      const Icon(Icons.check_circle_rounded, size: 11, color: AppColors.appleGreen),
                       const SizedBox(width: 4),
                     ],
                     Text(
@@ -837,9 +932,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                         fontFamily: AppTypography.monoFont,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: isLoaded
-                            ? AppColors.onSecondaryContainer
-                            : AppColors.onSurfaceVariant,
+                        color: isLoaded ? AppColors.appleGreen : AppColors.appleSecondaryLabel,
                       ),
                     ),
                   ],
@@ -852,75 +945,77 @@ class _ModelsScreenState extends State<ModelsScreen> {
           // Pill tags
           Wrap(
             spacing: 6,
-            runSpacing: 4,
+            runSpacing: 5,
             children: [
               if (widget.state.settings.russianSkillEnabled)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
+                    color: AppColors.appleTeal.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.translate, size: 11, color: AppColors.secondary),
+                    children: [
+                      Icon(Icons.translate_rounded, size: 11, color: AppColors.appleTeal),
                       SizedBox(width: 4),
                       Text(
                         'RU Навык',
                         style: TextStyle(
                           fontFamily: AppTypography.monoFont,
                           fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.secondary,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.appleTeal,
                         ),
                       ),
                     ],
                   ),
                 ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.tertiaryContainer.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppColors.appleOrange.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   model.quantization,
                   style: const TextStyle(
                     fontFamily: AppTypography.monoFont,
                     fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.tertiary,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.appleOrange,
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppColors.appleGlassSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
                 ),
                 child: Text(
                   'Размер: ${model.size}',
                   style: const TextStyle(
                     fontFamily: AppTypography.monoFont,
                     fontSize: 10,
-                    color: AppColors.onSurfaceVariant,
+                    color: AppColors.appleSecondaryLabel,
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppColors.appleGlassSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
                 ),
                 child: Text(
                   'Контекст: ${model.contextSize}',
                   style: const TextStyle(
                     fontFamily: AppTypography.monoFont,
                     fontSize: 10,
-                    color: AppColors.onSurfaceVariant,
+                    color: AppColors.appleSecondaryLabel,
                   ),
                 ),
               ),
@@ -931,10 +1026,11 @@ class _ModelsScreenState extends State<ModelsScreen> {
           // Active Metrics (if loaded) or RAM requirement info (if dormant)
           if (isLoaded) ...[
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.appleGlassSurface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
               ),
               child: Row(
                 children: [
@@ -942,15 +1038,15 @@ class _ModelsScreenState extends State<ModelsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        const Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
+                          children: [
                             Text(
                               'RAM VRAM',
                               style: TextStyle(
                                 fontFamily: AppTypography.monoFont,
                                 fontSize: 10,
-                                color: AppColors.onSurfaceVariant,
+                                color: AppColors.appleSecondaryLabel,
                               ),
                             ),
                             Text(
@@ -959,26 +1055,21 @@ class _ModelsScreenState extends State<ModelsScreen> {
                                 fontFamily: AppTypography.monoFont,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.secondary,
+                                color: AppColors.appleTeal,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Container(
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: 0.34,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: AppColors.secondary,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: Container(
+                            height: 4,
+                            color: AppColors.appleGlassHighlight,
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: 0.34,
+                              child: Container(color: AppColors.appleTeal),
                             ),
                           ),
                         ),
@@ -990,15 +1081,15 @@ class _ModelsScreenState extends State<ModelsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        const Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
+                          children: [
                             Text(
                               'Скорость',
                               style: TextStyle(
                                 fontFamily: AppTypography.monoFont,
                                 fontSize: 10,
-                                color: AppColors.onSurfaceVariant,
+                                color: AppColors.appleSecondaryLabel,
                               ),
                             ),
                             Text(
@@ -1007,26 +1098,21 @@ class _ModelsScreenState extends State<ModelsScreen> {
                                 fontFamily: AppTypography.monoFont,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
+                                color: AppColors.appleBlue,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Container(
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: 0.78,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: Container(
+                            height: 4,
+                            color: AppColors.appleGlassHighlight,
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: 0.78,
+                              child: Container(color: AppColors.appleBlue),
                             ),
                           ),
                         ),
@@ -1043,32 +1129,58 @@ class _ModelsScreenState extends State<ModelsScreen> {
               children: [
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: () => widget.state.setTab(3), // Jump to Settings
-                      icon: const Icon(Icons.tune, size: 18, color: AppColors.onSurfaceVariant),
-                      tooltip: 'Настройки инференса',
+                    ApplePressable(
+                      onTap: () => widget.state.setTab(3),
+                      borderRadius: BorderRadius.circular(12),
+                      child: const Padding(
+                        padding: EdgeInsets.all(7.0),
+                        child: Icon(Icons.tune_rounded, size: 18, color: AppColors.appleSecondaryLabel),
+                      ),
                     ),
-                    IconButton(
-                      onPressed: () => widget.state.setTab(2), // Jump to Monitoring
-                      icon: const Icon(Icons.analytics, size: 18, color: AppColors.onSurfaceVariant),
-                      tooltip: 'Статистика весов',
+                    const SizedBox(width: 4),
+                    ApplePressable(
+                      onTap: () => widget.state.setTab(2),
+                      borderRadius: BorderRadius.circular(12),
+                      child: const Padding(
+                        padding: EdgeInsets.all(7.0),
+                        child: Icon(Icons.analytics_rounded, size: 18, color: AppColors.appleSecondaryLabel),
+                      ),
                     ),
-                    IconButton(
-                      onPressed: () => _confirmDeleteModel(model),
-                      icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
-                      tooltip: 'Удалить модель',
+                    const SizedBox(width: 4),
+                    ApplePressable(
+                      onTap: () => _confirmDeleteModel(model),
+                      borderRadius: BorderRadius.circular(12),
+                      child: const Padding(
+                        padding: EdgeInsets.all(7.0),
+                        child: Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.appleRed),
+                      ),
                     ),
                   ],
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => widget.state.unloadModel(model),
-                  icon: const Icon(Icons.eject, size: 16),
-                  label: const Text('Выгрузить'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.errorContainer,
-                    foregroundColor: AppColors.onErrorContainer,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                ApplePressable(
+                  onTap: () => widget.state.unloadModel(model),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: AppColors.appleRed.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.eject_rounded, size: 15, color: AppColors.appleRed),
+                        SizedBox(width: 5),
+                        Text(
+                          'Выгрузить',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                            color: AppColors.appleRed,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1081,11 +1193,11 @@ class _ModelsScreenState extends State<ModelsScreen> {
                 Row(
                   children: [
                     Icon(
-                      model.isCompatible ? Icons.memory : Icons.warning_amber,
+                      model.isCompatible ? Icons.memory_rounded : Icons.warning_amber_rounded,
                       size: 15,
-                      color: model.isCompatible ? AppColors.outline : AppColors.error,
+                      color: model.isCompatible ? AppColors.appleTertiaryLabel : AppColors.appleOrange,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 5),
                     Text(
                       model.isCompatible
                           ? 'Требуется ~${model.ramRequirement} ОЗУ'
@@ -1093,37 +1205,48 @@ class _ModelsScreenState extends State<ModelsScreen> {
                       style: TextStyle(
                         fontFamily: AppTypography.monoFont,
                         fontSize: 10,
-                        color: model.isCompatible ? AppColors.onSurfaceVariant : AppColors.error,
+                        color: model.isCompatible ? AppColors.appleSecondaryLabel : AppColors.appleOrange,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      onPressed: () => _confirmDeleteModel(model),
-                      icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.onSurfaceVariant),
-                      tooltip: 'Удалить модель',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                    const SizedBox(width: 8),
+                    ApplePressable(
+                      onTap: () => _confirmDeleteModel(model),
+                      borderRadius: BorderRadius.circular(10),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4.0),
+                        child: Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.appleTertiaryLabel),
+                      ),
                     ),
                   ],
                 ),
-                ElevatedButton.icon(
-                  onPressed: model.isCompatible ? () => _handleLoadModel(model) : null,
-                  icon: Icon(
-                    model.isCompatible ? Icons.play_arrow : Icons.block,
-                    size: 16,
-                  ),
-                  label: Text(
-                    model.isCompatible ? 'Загрузить в ОЗУ' : 'Не поддерживается',
-                    style: const TextStyle(
-                      fontFamily: AppTypography.sansFont,
-                      fontWeight: FontWeight.w600,
+                ApplePressable(
+                  onTap: model.isCompatible ? () => _handleLoadModel(model) : null,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: model.isCompatible ? AppColors.appleBlue : AppColors.appleGlassSurface,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryContainer,
-                    foregroundColor: AppColors.onPrimaryContainer,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          model.isCompatible ? Icons.play_arrow_rounded : Icons.block_rounded,
+                          size: 15,
+                          color: model.isCompatible ? Colors.white : AppColors.appleTertiaryLabel,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          model.isCompatible ? 'Загрузить в ОЗУ' : 'Не поддерживается',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                            color: model.isCompatible ? Colors.white : AppColors.appleTertiaryLabel,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

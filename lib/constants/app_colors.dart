@@ -68,4 +68,30 @@ class AppColors {
   static const Color healthyRam = Color(0xFF74D7C8);
   static const Color warningRam = Color(0xFFFFD666);
   static const Color overheatRam = Color(0xFFFF8B8B);
+
+  // Apple Design System - Translucent Materials & Glass Depth
+  static const Color appleBackground = Color(0xFF000000); // Pure OLED black
+  static const Color appleGlassSurface = Color(0xCC18181C); // 80% opacity dark acrylic
+  static const Color appleGlassCard = Color(0x9924242A); // 60% opacity card
+  static const Color appleGlassModal = Color(0xDD1C1C20); // modal sheet acrylic
+  static const Color appleGlassHighlight = Color(0x28FFFFFF); // light-catching edge
+  static const Color appleGlassBorder = Color(0x1AFFFFFF); // subtle 10% white border
+  static const Color appleSubtleBorder = Color(0x12FFFFFF); // micro border 7% white
+  static const Color appleInputPill = Color(0x992C2C32); // floating input pill
+
+  // Apple System Accents
+  static const Color appleBlue = Color(0xFF0A84FF);
+  static const Color appleIndigo = Color(0xFF5E5CE6);
+  static const Color applePurple = Color(0xFFBF5AF2);
+  static const Color appleTeal = Color(0xFF64D2FF);
+  static const Color appleGreen = Color(0xFF30D158);
+  static const Color appleYellow = Color(0xFFFFD60A);
+  static const Color appleOrange = Color(0xFFFF9F0A);
+  static const Color appleRed = Color(0xFFFF453A);
+
+  // Apple Vibrancy Hierarchy
+  static const Color appleLabel = Color(0xFFFFFFFF);
+  static const Color appleSecondaryLabel = Color(0x99EBEBF5); // 60% white
+  static const Color appleTertiaryLabel = Color(0x4DEBEBF5); // 30% white
+  static const Color appleQuaternaryLabel = Color(0x29EBEBF5); // 16% white
 }

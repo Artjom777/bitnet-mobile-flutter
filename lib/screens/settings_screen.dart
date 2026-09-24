@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_typography.dart';
 import '../state/bitnet_state.dart';
+import '../widgets/apple_pressable.dart';
 
 class SettingsScreen extends StatefulWidget {
   final BitNetState state;
@@ -35,22 +36,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.done, size: 18, color: AppColors.secondary),
+            const Icon(Icons.done_rounded, size: 18, color: AppColors.appleGreen),
             const SizedBox(width: 8),
             Text(
               message,
               style: const TextStyle(
-                fontFamily: AppTypography.monoFont,
-                fontSize: 12,
-                color: AppColors.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.appleLabel,
               ),
             ),
           ],
         ),
-        backgroundColor: AppColors.surfaceContainerHighest,
+        backgroundColor: AppColors.appleGlassCard,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        margin: const EdgeInsets.only(bottom: 24, left: 32, right: 32),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.appleGlassBorder, width: 0.6),
+        ),
+        margin: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -81,44 +85,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainer,
-        title: const Text('Каталог хранения моделей', style: TextStyle(color: AppColors.onSurface, fontSize: 16)),
+        backgroundColor: AppColors.appleGlassCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: AppColors.appleGlassBorder, width: 0.6),
+        ),
+        title: const Text(
+          'Каталог хранения моделей',
+          style: TextStyle(
+            color: AppColors.appleLabel,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Выберите стандартный путь или задайте свой:', style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 12)),
-            const SizedBox(height: 8),
-            ...paths.map((p) => ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.folder, size: 18, color: AppColors.primary),
-              title: Text(p, style: const TextStyle(fontFamily: AppTypography.monoFont, fontSize: 11, color: AppColors.onSurface)),
+            const Text(
+              'Выберите стандартный путь или задайте свой:',
+              style: TextStyle(color: AppColors.appleSecondaryLabel, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            ...paths.map((p) => ApplePressable(
               onTap: () {
                 controller.text = p;
               },
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.folder_rounded, size: 18, color: AppColors.appleTeal),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        p,
+                        style: const TextStyle(
+                          fontFamily: AppTypography.monoFont,
+                          fontSize: 11,
+                          color: AppColors.appleLabel,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             )),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             TextField(
               controller: controller,
-              style: const TextStyle(fontFamily: AppTypography.monoFont, fontSize: 12, color: AppColors.onSurface),
+              style: const TextStyle(
+                fontFamily: AppTypography.monoFont,
+                fontSize: 12,
+                color: AppColors.appleLabel,
+              ),
               decoration: InputDecoration(
                 labelText: 'Путь к папке',
-                labelStyle: const TextStyle(color: AppColors.onSurfaceVariant, fontSize: 11),
+                labelStyle: const TextStyle(color: AppColors.appleSecondaryLabel, fontSize: 12),
                 filled: true,
-                fillColor: AppColors.surfaceContainerLowest,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                fillColor: AppColors.appleGlassSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.appleGlassBorder, width: 0.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена', style: TextStyle(color: AppColors.onSurfaceVariant)),
+          ApplePressable(
+            onTap: () => Navigator.pop(ctx),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: const Text('Отмена', style: TextStyle(color: AppColors.appleBlue)),
+            ),
           ),
-          ElevatedButton(
-            onPressed: () async {
+          ApplePressable(
+            onTap: () async {
               final newPath = controller.text.trim();
               if (newPath.isNotEmpty) {
                 try {
@@ -133,11 +181,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _showFloatingToast('Каталог обновлен: $newPath');
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.onPrimary,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.appleBlue,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Сохранить',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
             ),
-            child: const Text('Сохранить'),
           ),
         ],
       ),
@@ -151,146 +206,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
-        // Interactive Header Banner
+        // Interactive Apple Header Banner
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(20),
+            color: AppColors.appleGlassCard,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: AppColors.appleGlassBorder,
+              width: 0.6,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-          child: Stack(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Positioned(
-                right: -10,
-                top: -10,
-                child: Opacity(
-                  opacity: 0.12,
-                  child: const Icon(
-                    Icons.developer_board,
-                    size: 90,
-                    color: AppColors.primary,
+              Row(
+                children: const [
+                  Icon(Icons.tune_rounded, color: AppColors.appleTeal, size: 18),
+                  SizedBox(width: 6),
+                  Text(
+                    'BITNET LOW-RANK TUNING',
+                    style: TextStyle(
+                      fontFamily: AppTypography.monoFont,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                      color: AppColors.appleTeal,
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Параметры инференса',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: AppColors.appleLabel,
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 4),
+              const Text(
+                'Тонкая калибровка 1.58-битного ядра под гетерогенные ядра Snapdragon & Dimensity',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  letterSpacing: -0.2,
+                  color: AppColors.appleSecondaryLabel,
+                ),
+              ),
+              const SizedBox(height: 14),
+              // Micro Hardware Badge Strip
+              Wrap(
+                spacing: 6,
+                runSpacing: 5,
                 children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.tune, color: AppColors.secondary, size: 18),
-                      SizedBox(width: 6),
-                      Text(
-                        'BITNET LOW-RANK TUNING',
-                        style: TextStyle(
-                          fontFamily: AppTypography.monoFont,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                          color: AppColors.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Параметры инференса',
-                    style: TextStyle(
-                      fontFamily: AppTypography.sansFont,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.onSurface,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.appleGlassSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Тонкая калибровка 1.58-битного ядра под гетерогенные ядра Snapdragon & Dimensity',
-                    style: TextStyle(
-                      fontFamily: AppTypography.sansFont,
-                      fontSize: 12,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Micro Hardware Badge Strip
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.circle, size: 6, color: AppColors.secondary),
-                            SizedBox(width: 4),
-                            Text(
-                              'ARMv9 NEON',
-                              style: TextStyle(
-                                fontFamily: AppTypography.monoFont,
-                                fontSize: 10,
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Text(
-                          'INT8/FP16 Hyb',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.circle, size: 6, color: AppColors.appleTeal),
+                        SizedBox(width: 5),
+                        Text(
+                          'ARMv9 NEON',
                           style: TextStyle(
                             fontFamily: AppTypography.monoFont,
                             fontSize: 10,
-                            color: AppColors.tertiary,
+                            color: AppColors.appleSecondaryLabel,
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.appleGlassSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
+                    ),
+                    child: const Text(
+                      'INT8/FP16 Hyb',
+                      style: TextStyle(
+                        fontFamily: AppTypography.monoFont,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.appleOrange,
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Text(
-                          'Peak: ~1.2W',
-                          style: TextStyle(
-                            fontFamily: AppTypography.monoFont,
-                            fontSize: 10,
-                            color: AppColors.onSurfaceVariant,
-                          ),
-                        ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.appleGlassSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
+                    ),
+                    child: const Text(
+                      'Peak: ~1.2W',
+                      style: TextStyle(
+                        fontFamily: AppTypography.monoFont,
+                        fontSize: 10,
+                        color: AppColors.appleSecondaryLabel,
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
 
         // SECTION 1: Engine bitnet.cpp
-        _buildSectionHeader('Движок bitnet.cpp', Icons.memory, AppColors.primary),
+        _buildSectionHeader('Движок bitnet.cpp', Icons.memory_rounded, AppColors.appleBlue),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainer,
+            color: AppColors.appleGlassCard,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.appleGlassBorder, width: 0.6),
           ),
           child: Column(
             children: [
@@ -308,30 +357,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               width: 34,
                               height: 34,
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceContainerHigh,
+                                color: AppColors.appleBlue.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.reorder, size: 18, color: AppColors.primary),
+                              child: const Icon(Icons.reorder_rounded, size: 18, color: AppColors.appleBlue),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: const [
                                 Text(
                                   'Количество потоков CPU',
                                   style: TextStyle(
-                                    fontFamily: AppTypography.sansFont,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.onSurface,
+                                    letterSpacing: -0.2,
+                                    color: AppColors.appleLabel,
                                   ),
                                 ),
+                                SizedBox(height: 2),
                                 Text(
                                   'Оптимально для big.LITTLE архитектуры',
                                   style: TextStyle(
-                                    fontFamily: AppTypography.sansFont,
-                                    fontSize: 11,
-                                    color: AppColors.onSurfaceVariant,
+                                    fontSize: 12,
+                                    color: AppColors.appleSecondaryLabel,
                                   ),
                                 ),
                               ],
@@ -339,9 +388,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryContainer,
+                            color: AppColors.appleBlue.withOpacity(0.18),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -349,19 +398,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: const TextStyle(
                               fontFamily: AppTypography.monoFont,
                               fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.onPrimaryContainer,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.appleBlue,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Slider(
                       value: s.cpuThreads.toDouble(),
                       min: 1,
                       max: 8,
                       divisions: 7,
+                      activeColor: AppColors.appleBlue,
                       onChanged: (v) {
                         widget.state.updateSettings(s.copyWith(cpuThreads: v.toInt()));
                       },
@@ -374,7 +424,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: TextStyle(
                             fontFamily: AppTypography.monoFont,
                             fontSize: 10,
-                            color: AppColors.onSurfaceVariant,
+                            color: AppColors.appleTertiaryLabel,
                           ),
                         ),
                         Text(
@@ -383,7 +433,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontFamily: AppTypography.monoFont,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.secondary,
+                            color: AppColors.appleTeal,
                           ),
                         ),
                         Text(
@@ -391,7 +441,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: TextStyle(
                             fontFamily: AppTypography.monoFont,
                             fontSize: 10,
-                            color: AppColors.onSurfaceVariant,
+                            color: AppColors.appleTertiaryLabel,
                           ),
                         ),
                       ],
@@ -399,7 +449,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              const Divider(height: 1, color: AppColors.appleGlassBorder),
               // Instruction Set Toggle
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -412,30 +462,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           width: 34,
                           height: 34,
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
+                            color: AppColors.appleTeal.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.bolt, size: 18, color: AppColors.secondary),
+                          child: const Icon(Icons.bolt_rounded, size: 18, color: AppColors.appleTeal),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text(
                               'Набор инструкций',
                               style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 14,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.onSurface,
+                                letterSpacing: -0.2,
+                                color: AppColors.appleLabel,
                               ),
                             ),
+                            SizedBox(height: 2),
                             Text(
                               'ARM NEON + I8MM ускорение',
                               style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
+                                fontSize: 12,
+                                color: AppColors.appleSecondaryLabel,
                               ),
                             ),
                           ],
@@ -444,6 +494,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     Switch(
                       value: s.instructionSetEnabled,
+                      activeColor: AppColors.appleGreen,
                       onChanged: (v) {
                         widget.state.updateSettings(s.copyWith(instructionSetEnabled: v));
                       },
@@ -451,7 +502,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              const Divider(height: 1, color: AppColors.appleGlassBorder),
               // Context Size Pill Selector
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -464,30 +515,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           width: 34,
                           height: 34,
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
+                            color: AppColors.appleOrange.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.storage, size: 18, color: AppColors.tertiary),
+                          child: const Icon(Icons.storage_rounded, size: 18, color: AppColors.appleOrange),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text(
                               'Размер контекста',
                               style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 14,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.onSurface,
+                                letterSpacing: -0.2,
+                                color: AppColors.appleLabel,
                               ),
                             ),
+                            SizedBox(height: 2),
                             Text(
                               'Буфер KV-кэша оперативной памяти',
                               style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
+                                fontSize: 12,
+                                color: AppColors.appleSecondaryLabel,
                               ),
                             ),
                           ],
@@ -496,25 +547,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
+                        color: AppColors.appleGlassSurface,
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
                       ),
                       child: Row(
                         children: [2048, 4096, 8192].map((ctx) {
                           final isSel = s.contextSize == ctx;
                           return Expanded(
-                            child: InkWell(
+                            child: ApplePressable(
                               onTap: () {
                                 widget.state.updateSettings(s.copyWith(contextSize: ctx));
                               },
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
+                              borderRadius: BorderRadius.circular(11),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isSel ? AppColors.primaryContainer : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: isSel ? AppColors.appleBlue : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(11),
                                 ),
                                 child: Center(
                                   child: Text(
@@ -522,8 +575,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     style: TextStyle(
                                       fontFamily: AppTypography.monoFont,
                                       fontSize: 12,
-                                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
-                                      color: isSel ? AppColors.onPrimaryContainer : AppColors.onSurfaceVariant,
+                                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                      color: isSel ? Colors.white : AppColors.appleSecondaryLabel,
                                     ),
                                   ),
                                 ),
@@ -536,7 +589,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              const Divider(height: 1, color: AppColors.appleGlassBorder),
               // Accelerator Backend Selector (CPU / GPU / NPU)
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -549,30 +602,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           width: 34,
                           height: 34,
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
+                            color: AppColors.appleBlue.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.memory, size: 18, color: AppColors.primary),
+                          child: const Icon(Icons.memory_rounded, size: 18, color: AppColors.appleBlue),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text(
                               'Аппаратный ускоритель',
                               style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 14,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.onSurface,
+                                letterSpacing: -0.2,
+                                color: AppColors.appleLabel,
                               ),
                             ),
+                            SizedBox(height: 2),
                             Text(
                               'Вычислительный бэкенд (CPU / GPU / NPU)',
                               style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
+                                fontSize: 12,
+                                color: AppColors.appleSecondaryLabel,
                               ),
                             ),
                           ],
@@ -581,10 +634,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
+                        color: AppColors.appleGlassSurface,
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
                       ),
                       child: Row(
                         children: [
@@ -594,25 +648,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ].map((b) {
                           final isSel = s.deviceBackend == b['id'];
                           return Expanded(
-                            child: InkWell(
+                            child: ApplePressable(
                               onTap: () {
                                 widget.state.updateSettings(s.copyWith(deviceBackend: b['id']!));
                               },
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
+                              borderRadius: BorderRadius.circular(11),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isSel ? AppColors.primaryContainer : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: isSel ? AppColors.appleBlue : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(11),
                                 ),
                                 child: Center(
                                   child: Text(
                                     b['name']!,
                                     style: TextStyle(
-                                      fontFamily: AppTypography.monoFont,
-                                      fontSize: 11,
-                                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
-                                      color: isSel ? AppColors.onPrimaryContainer : AppColors.onSurfaceVariant,
+                                      fontSize: 12,
+                                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                      color: isSel ? Colors.white : AppColors.appleSecondaryLabel,
                                     ),
                                   ),
                                 ),
@@ -628,15 +682,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
 
         // SECTION 2: Generation Hyperparameters
-        _buildSectionHeader('Параметры генерации', Icons.psychology, AppColors.secondary),
+        _buildSectionHeader('Параметры генерации', Icons.psychology_rounded, AppColors.appleTeal),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainer,
+            color: AppColors.appleGlassCard,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.appleGlassBorder, width: 0.6),
           ),
           child: Column(
             children: [
@@ -644,8 +699,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildSliderRow(
                 title: 'Temperature',
                 subtitle: 'Степень креативности ответов',
-                icon: Icons.thermostat,
-                iconColor: AppColors.secondary,
+                icon: Icons.thermostat_rounded,
+                iconColor: AppColors.appleOrange,
                 value: s.temperature,
                 min: 0.1,
                 max: 1.5,
@@ -653,13 +708,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 displayValue: s.temperature.toStringAsFixed(2),
                 onChanged: (v) => widget.state.updateSettings(s.copyWith(temperature: v)),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              const Divider(height: 1, color: AppColors.appleGlassBorder),
               // Top-P Slider
               _buildSliderRow(
                 title: 'Top-P',
                 subtitle: 'Вероятностная выборка токенов',
-                icon: Icons.filter_list,
-                iconColor: AppColors.primary,
+                icon: Icons.filter_list_rounded,
+                iconColor: AppColors.appleBlue,
                 value: s.topP,
                 min: 0.1,
                 max: 1.0,
@@ -667,13 +722,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 displayValue: s.topP.toStringAsFixed(2),
                 onChanged: (v) => widget.state.updateSettings(s.copyWith(topP: v)),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              const Divider(height: 1, color: AppColors.appleGlassBorder),
               // Repetition Penalty Slider
               _buildSliderRow(
                 title: 'Repetition Penalty',
                 subtitle: 'Штраф за цикличность фраз',
-                icon: Icons.replay,
-                iconColor: AppColors.tertiary,
+                icon: Icons.replay_rounded,
+                iconColor: AppColors.appleTeal,
                 value: s.repetitionPenalty,
                 min: 1.0,
                 max: 1.5,
@@ -681,7 +736,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 displayValue: s.repetitionPenalty.toStringAsFixed(2),
                 onChanged: (v) => widget.state.updateSettings(s.copyWith(repetitionPenalty: v)),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              const Divider(height: 1, color: AppColors.appleGlassBorder),
               // Max Output Tokens Selector (128 .. 4096)
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -697,68 +752,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               width: 34,
                               height: 34,
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceContainerHigh,
+                                color: AppColors.appleTeal.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.short_text, size: 18, color: AppColors.secondary),
+                              child: const Icon(Icons.short_text_rounded, size: 18, color: AppColors.appleTeal),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: const [
                                 Text(
                                   'Максимум токенов',
                                   style: TextStyle(
-                                    fontFamily: AppTypography.sansFont,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.onSurface,
+                                    letterSpacing: -0.2,
+                                    color: AppColors.appleLabel,
                                   ),
                                 ),
+                                SizedBox(height: 2),
                                 Text(
                                   'Длина генерации (128 — 4096 токенов)',
                                   style: TextStyle(
-                                    fontFamily: AppTypography.sansFont,
-                                    fontSize: 11,
-                                    color: AppColors.onSurfaceVariant,
+                                    fontSize: 12,
+                                    color: AppColors.appleSecondaryLabel,
                                   ),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                        Text(
-                          s.maxTokens.toString(),
-                          style: const TextStyle(
-                            fontFamily: AppTypography.monoFont,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.secondary,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.appleTeal.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            s.maxTokens.toString(),
+                            style: const TextStyle(
+                              fontFamily: AppTypography.monoFont,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.appleTeal,
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
+                        color: AppColors.appleGlassSurface,
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
                       ),
                       child: Row(
                         children: [256, 512, 1024, 2048, 4096].map((tok) {
                           final isSel = s.maxTokens == tok;
                           return Expanded(
-                            child: InkWell(
+                            child: ApplePressable(
                               onTap: () {
                                 widget.state.updateSettings(s.copyWith(maxTokens: tok));
                               },
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
+                              borderRadius: BorderRadius.circular(11),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isSel ? AppColors.secondaryContainer : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: isSel ? AppColors.appleTeal : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(11),
                                 ),
                                 child: Center(
                                   child: Text(
@@ -766,8 +830,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     style: TextStyle(
                                       fontFamily: AppTypography.monoFont,
                                       fontSize: 11,
-                                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
-                                      color: isSel ? AppColors.onSecondaryContainer : AppColors.onSurfaceVariant,
+                                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                      color: isSel ? Colors.white : AppColors.appleSecondaryLabel,
                                     ),
                                   ),
                                 ),
@@ -780,7 +844,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              const Divider(height: 1, color: AppColors.appleGlassBorder),
               // System Prompt
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -793,29 +857,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           width: 34,
                           height: 34,
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
+                            color: AppColors.appleBlue.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.smart_toy, size: 18, color: AppColors.primaryFixedDim),
+                          child: const Icon(Icons.smart_toy_outlined, size: 18, color: AppColors.appleBlue),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         const Text(
                           'Системный промпт',
                           style: TextStyle(
-                            fontFamily: AppTypography.sansFont,
-                            fontSize: 14,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.onSurface,
+                            letterSpacing: -0.2,
+                            color: AppColors.appleLabel,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHighest,
+                        color: AppColors.appleGlassSurface,
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.appleGlassBorder, width: 0.5),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -825,12 +890,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             maxLines: 3,
                             onChanged: (_) => setState(() {}),
                             style: const TextStyle(
-                              fontFamily: AppTypography.sansFont,
                               fontSize: 13,
-                              color: AppColors.onSurface,
+                              height: 1.4,
+                              color: AppColors.appleLabel,
                             ),
                             decoration: const InputDecoration(
                               hintText: 'Задайте роль ассистента...',
+                              hintStyle: TextStyle(color: AppColors.appleTertiaryLabel),
                               border: InputBorder.none,
                               isDense: true,
                             ),
@@ -840,7 +906,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: const TextStyle(
                               fontFamily: AppTypography.monoFont,
                               fontSize: 10,
-                              color: AppColors.onSurfaceVariant,
+                              color: AppColors.appleTertiaryLabel,
                             ),
                           ),
                         ],
@@ -852,15 +918,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
 
         // SECTION 2.5: Russian Polyglot Skill
-        _buildSectionHeader('Навык русского языка (Polyglot)', Icons.language, AppColors.secondary),
+        _buildSectionHeader('НАВЫК РУССКОГО ЯЗЫКА (POLYGLOT)', Icons.translate_rounded, AppColors.appleTeal),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainer,
-            borderRadius: BorderRadius.circular(20),
+            color: AppColors.appleGlassCard,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.appleGlassBorder, width: 0.6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -874,54 +948,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Row(
                         children: [
                           Container(
-                            width: 34,
-                            height: 34,
+                            width: 36,
+                            height: 36,
                             decoration: BoxDecoration(
-                              color: AppColors.secondaryContainer,
+                              color: AppColors.appleTeal.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.translate, size: 18, color: AppColors.secondary),
+                            child: const Icon(Icons.translate_rounded, size: 18, color: AppColors.appleTeal),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Навык русского языка',
-                                      style: TextStyle(
-                                        fontFamily: AppTypography.sansFont,
+                                      style: AppTypography.appleBody.copyWith(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
-                                        color: AppColors.onSurface,
+                                        color: AppColors.appleLabel,
                                       ),
                                     ),
                                     const SizedBox(width: 6),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: AppColors.secondary.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(4),
+                                        color: AppColors.appleTeal.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: const Text(
-                                        'Active',
-                                        style: TextStyle(
-                                          fontFamily: AppTypography.monoFont,
+                                      child: Text(
+                                        'ACTIVE',
+                                        style: AppTypography.appleCaption.copyWith(
                                           fontSize: 9,
-                                          color: AppColors.secondary,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.appleTeal,
+                                          letterSpacing: 0.5,
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const Text(
+                                const SizedBox(height: 2),
+                                Text(
                                   'Позволяет англоязычным моделям BitNet понимать запросы на русском и отвечать на русском',
-                                  style: TextStyle(
-                                    fontFamily: AppTypography.sansFont,
-                                    fontSize: 11,
-                                    color: AppColors.onSurfaceVariant,
+                                  style: AppTypography.appleCaption.copyWith(
+                                    color: AppColors.appleSecondaryLabel,
+                                    height: 1.2,
                                   ),
                                 ),
                               ],
@@ -935,12 +1009,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: (v) {
                         widget.state.updateSettings(s.copyWith(russianSkillEnabled: v));
                       },
-                      activeColor: AppColors.secondary,
+                      activeColor: AppColors.appleGreen,
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              Divider(height: 1, color: AppColors.appleGlassBorder, indent: 64),
               // Auto-Translate Output Switch
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -951,34 +1025,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Row(
                         children: [
                           Container(
-                            width: 34,
-                            height: 34,
+                            width: 36,
+                            height: 36,
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerHigh,
+                              color: AppColors.appleBlue.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.auto_stories, size: 18, color: AppColors.primary),
+                            child: const Icon(Icons.auto_stories_rounded, size: 18, color: AppColors.appleBlue),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
+                              children: [
                                 Text(
                                   'Автоперевод ответов в русский',
-                                  style: TextStyle(
-                                    fontFamily: AppTypography.sansFont,
+                                  style: AppTypography.appleBody.copyWith(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.onSurface,
+                                    color: AppColors.appleLabel,
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
                                   'Если модель генерирует ответ на английском, навык адаптирует его на чистый русский',
-                                  style: TextStyle(
-                                    fontFamily: AppTypography.sansFont,
-                                    fontSize: 11,
-                                    color: AppColors.onSurfaceVariant,
+                                  style: AppTypography.appleCaption.copyWith(
+                                    color: AppColors.appleSecondaryLabel,
+                                    height: 1.2,
                                   ),
                                 ),
                               ],
@@ -992,7 +1065,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: (v) {
                         widget.state.updateSettings(s.copyWith(autoTranslateToRussian: v));
                       },
-                      activeColor: AppColors.primary,
+                      activeColor: AppColors.appleGreen,
                     ),
                   ],
                 ),
@@ -1000,15 +1073,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
 
         // SECTION 3: Autonomy and Privacy
-        _buildSectionHeader('Автономность и приватность', Icons.verified_user, AppColors.tertiary),
+        _buildSectionHeader('АВТОНОМНОСТЬ И ПРИВАТНОСТЬ', Icons.shield_rounded, AppColors.appleGreen),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainer,
-            borderRadius: BorderRadius.circular(20),
+            color: AppColors.appleGlassCard,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.appleGlassBorder, width: 0.6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -1018,69 +1099,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: AppColors.secondaryContainer,
-                            borderRadius: BorderRadius.circular(10),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.appleGreen.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.airplanemode_active_rounded,
+                              size: 18,
+                              color: AppColors.appleGreen,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.airplanemode_active,
-                            size: 18,
-                            color: AppColors.onSecondaryContainer,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  '100% Офлайн режим',
-                                  style: TextStyle(
-                                    fontFamily: AppTypography.sansFont,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.onSurface,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.secondary.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'Safe',
-                                    style: TextStyle(
-                                      fontFamily: AppTypography.monoFont,
-                                      fontSize: 9,
-                                      color: AppColors.secondary,
+                                Row(
+                                  children: [
+                                    Text(
+                                      '100% Офлайн режим',
+                                      style: AppTypography.appleBody.copyWith(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.appleLabel,
+                                      ),
                                     ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.appleGreen.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'SAFE',
+                                        style: AppTypography.appleCaption.copyWith(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.appleGreen,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Блокирует любые внешние сетевые сокеты',
+                                  style: AppTypography.appleCaption.copyWith(
+                                    color: AppColors.appleSecondaryLabel,
                                   ),
                                 ),
                               ],
                             ),
-                            const Text(
-                              'Блокирует любые внешние сетевые сокеты',
-                              style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                     Switch(
                       value: s.offlineMode,
-                      activeColor: AppColors.secondary,
+                      activeColor: AppColors.appleGreen,
                       onChanged: (v) {
                         widget.state.updateSettings(s.copyWith(offlineMode: v));
                         _showFloatingToast(v ? 'Офлайн режим включен' : 'Офлайн режим отключен');
@@ -1089,55 +1173,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              Divider(height: 1, color: AppColors.appleGlassBorder, indent: 64),
               // Wakelock Switch
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.screen_lock_portrait,
-                            size: 18,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Wakelock',
-                              style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.onSurface,
-                              ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.appleOrange.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            Text(
-                              'Держать CPU активным во время длинных генераций',
-                              style: TextStyle(
-                                fontFamily: AppTypography.sansFont,
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
-                              ),
+                            child: const Icon(
+                              Icons.bolt_rounded,
+                              size: 18,
+                              color: AppColors.appleOrange,
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Wakelock CPU',
+                                  style: AppTypography.appleBody.copyWith(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.appleLabel,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Держать CPU активным во время фоновых генераций',
+                                  style: AppTypography.appleCaption.copyWith(
+                                    color: AppColors.appleSecondaryLabel,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     Switch(
                       value: s.wakelock,
+                      activeColor: AppColors.appleGreen,
                       onChanged: (v) {
                         widget.state.updateSettings(s.copyWith(wakelock: v));
                         _showFloatingToast(v ? 'Wakelock CPU активирован' : 'Wakelock CPU отключен');
@@ -1146,52 +1233,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.surfaceContainerHighest),
+              Divider(height: 1, color: AppColors.appleGlassBorder, indent: 64),
               // Model Storage Folder
-              InkWell(
+              ApplePressable(
                 onTap: _showChangeDirectoryDialog,
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(10),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: AppColors.appleBlue.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.folder_rounded, size: 18, color: AppColors.appleBlue),
                             ),
-                            child: const Icon(Icons.folder_open, size: 18, color: AppColors.onSurfaceVariant),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Папка для моделей',
-                                style: TextStyle(
-                                  fontFamily: AppTypography.sansFont,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.onSurface,
-                                ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Папка для моделей',
+                                    style: AppTypography.appleBody.copyWith(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.appleLabel,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    s.modelsDirectory,
+                                    style: AppTypography.appleCaption.copyWith(
+                                      fontFamily: AppTypography.monoFont,
+                                      color: AppColors.appleBlue,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
-                              Text(
-                                s.modelsDirectory,
-                                style: const TextStyle(
-                                  fontFamily: AppTypography.monoFont,
-                                  fontSize: 10,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
-                      const Icon(Icons.chevron_right, color: AppColors.onSurfaceVariant, size: 20),
+                      const Icon(Icons.chevron_right_rounded, color: AppColors.appleTertiaryLabel, size: 20),
                     ],
                   ),
                 ),
@@ -1201,101 +1294,130 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 18),
 
-        // Micro Diagnostics Floating Card
+        // Micro Diagnostics Glass Card
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLowest,
+            color: AppColors.appleGlassSurface,
             borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.appleGlassBorder, width: 0.6),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
-                children: const [
-                  Icon(Icons.terminal, color: AppColors.secondary, size: 18),
-                  SizedBox(width: 8),
+                children: [
+                  const Icon(Icons.memory_rounded, color: AppColors.appleTeal, size: 18),
+                  const SizedBox(width: 8),
                   Text(
                     'Estimated VRAM / Weights:',
-                    style: TextStyle(
+                    style: AppTypography.appleCaption.copyWith(
                       fontFamily: AppTypography.monoFont,
-                      fontSize: 11,
-                      color: AppColors.onSurfaceVariant,
+                      color: AppColors.appleSecondaryLabel,
                     ),
                   ),
                 ],
               ),
-              const Text(
+              Text(
                 '1.18 GB',
-                style: TextStyle(
+                style: AppTypography.appleCaption.copyWith(
                   fontFamily: AppTypography.monoFont,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.onSurface,
+                  color: AppColors.appleTeal,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 24),
 
         // Bottom CTA Actions
-        ElevatedButton.icon(
-          onPressed: _applySettings,
-          icon: const Icon(Icons.check_circle, size: 18),
-          label: const Text(
-            'Применить настройки',
-            style: TextStyle(
-              fontFamily: AppTypography.sansFont,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+        ApplePressable(
+          onTap: _applySettings,
+          borderRadius: BorderRadius.circular(25),
+          child: Container(
+            height: 50,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.appleBlue, Color(0xFF0056B3)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.appleBlue.withOpacity(0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.check_circle_rounded, size: 18, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  'Применить настройки',
+                  style: AppTypography.appleHeadline.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.onPrimary,
-            minimumSize: const Size(double.infinity, 48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          ),
         ),
-        const SizedBox(height: 10),
-        ElevatedButton.icon(
-          onPressed: _resetDefaults,
-          icon: const Icon(Icons.restart_alt, size: 18),
-          label: const Text(
-            'Сбросить по умолчанию',
-            style: TextStyle(
-              fontFamily: AppTypography.sansFont,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+        const SizedBox(height: 12),
+        ApplePressable(
+          onTap: _resetDefaults,
+          borderRadius: BorderRadius.circular(23),
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.appleGlassSurface,
+              borderRadius: BorderRadius.circular(23),
+              border: Border.all(color: AppColors.appleGlassBorder, width: 0.6),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.restart_alt_rounded, size: 18, color: AppColors.appleSecondaryLabel),
+                const SizedBox(width: 8),
+                Text(
+                  'Сбросить по умолчанию',
+                  style: AppTypography.appleCallout.copyWith(
+                    color: AppColors.appleSecondaryLabel,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.surfaceContainerHigh,
-            foregroundColor: AppColors.onSurfaceVariant,
-            minimumSize: const Size(double.infinity, 44),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          ),
         ),
+        const SizedBox(height: 20),
       ],
     );
   }
 
   Widget _buildSectionHeader(String title, IconData icon, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 6),
-        Text(
-          title,
-          style: TextStyle(
-            fontFamily: AppTypography.monoFont,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: color,
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: AppTypography.appleCaption.copyWith(
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: AppColors.appleSecondaryLabel,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1318,53 +1440,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(10),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: iconColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, size: 18, color: iconColor),
                     ),
-                    child: Icon(icon, size: 18, color: iconColor),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontFamily: AppTypography.sansFont,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.onSurface,
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: AppTypography.appleBody.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.appleLabel,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: AppTypography.appleCaption.copyWith(
+                              color: AppColors.appleSecondaryLabel,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontFamily: AppTypography.sansFont,
-                          fontSize: 11,
-                          color: AppColors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.appleGlassSurface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.appleGlassBorder, width: 0.6),
                 ),
                 child: Text(
                   displayValue,
-                  style: TextStyle(
+                  style: AppTypography.appleCaption.copyWith(
                     fontFamily: AppTypography.monoFont,
-                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: iconColor,
                   ),
@@ -1372,17 +1496,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: divisions,
-            activeColor: iconColor,
-            onChanged: onChanged,
+          const SizedBox(height: 10),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: iconColor,
+              inactiveTrackColor: Colors.white.withOpacity(0.08),
+              thumbColor: Colors.white,
+              overlayColor: iconColor.withOpacity(0.15),
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
+            ),
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: onChanged,
+            ),
           ),
         ],
       ),
     );
   }
 }
+

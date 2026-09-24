@@ -7,29 +7,29 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: AppColors.surface,
-      primaryColor: AppColors.primary,
+      scaffoldBackgroundColor: AppColors.appleBackground,
+      primaryColor: AppColors.appleBlue,
       colorScheme: const ColorScheme.dark(
-        surface: AppColors.surface,
-        onSurface: AppColors.onSurface,
-        onSurfaceVariant: AppColors.onSurfaceVariant,
-        primary: AppColors.primary,
-        onPrimary: AppColors.onPrimary,
+        surface: AppColors.appleBackground,
+        onSurface: AppColors.appleLabel,
+        onSurfaceVariant: AppColors.appleSecondaryLabel,
+        primary: AppColors.appleBlue,
+        onPrimary: Colors.white,
         primaryContainer: AppColors.primaryContainer,
         onPrimaryContainer: AppColors.onPrimaryContainer,
-        secondary: AppColors.secondary,
-        onSecondary: AppColors.onSecondary,
+        secondary: AppColors.appleTeal,
+        onSecondary: Colors.white,
         secondaryContainer: AppColors.secondaryContainer,
         onSecondaryContainer: AppColors.onSecondaryContainer,
-        tertiary: AppColors.tertiary,
-        onTertiary: AppColors.onTertiary,
+        tertiary: AppColors.appleGreen,
+        onTertiary: Colors.white,
         tertiaryContainer: AppColors.tertiaryContainer,
         onTertiaryContainer: AppColors.onTertiaryContainer,
-        error: AppColors.error,
-        onError: AppColors.onError,
+        error: AppColors.appleRed,
+        onError: Colors.white,
         errorContainer: AppColors.errorContainer,
         onErrorContainer: AppColors.onErrorContainer,
-        outline: AppColors.outline,
+        outline: AppColors.appleGlassBorder,
         outlineVariant: AppColors.outlineVariant,
       ),
       fontFamily: AppTypography.sansFont,
@@ -49,24 +49,21 @@ class AppTheme {
         labelSmall: AppTypography.labelSm,
       ),
       sliderTheme: SliderThemeData(
-        activeTrackColor: AppColors.primary,
-        inactiveTrackColor: AppColors.surfaceContainerHighest,
-        thumbColor: AppColors.primary,
-        overlayColor: AppColors.primary.withOpacity(0.2),
+        activeTrackColor: AppColors.appleBlue,
+        inactiveTrackColor: Colors.white.withOpacity(0.1),
+        thumbColor: Colors.white,
+        overlayColor: AppColors.appleBlue.withOpacity(0.15),
         trackHeight: 4.0,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith<Color?>((states) {
-          if (states.contains(WidgetState.selected)) {
-            return AppColors.onPrimary;
-          }
-          return AppColors.onSurfaceVariant;
+          return Colors.white;
         }),
         trackColor: WidgetStateProperty.resolveWith<Color?>((states) {
           if (states.contains(WidgetState.selected)) {
-            return AppColors.primary;
+            return AppColors.appleGreen;
           }
-          return AppColors.surfaceContainerHighest;
+          return Colors.white.withOpacity(0.15);
         }),
         trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       ),

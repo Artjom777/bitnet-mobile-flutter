@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_typography.dart';
 import '../state/bitnet_state.dart';
+import 'apple_pressable.dart';
 
 class StatusBanner extends StatelessWidget {
   final BitNetState state;
@@ -11,192 +12,206 @@ class StatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ramPercent = (state.ramUsedGb / state.ramTotalGb).clamp(0.0, 1.0);
+    final isModelReady = state.hasActiveModel && state.activeModel.isLoaded;
 
-    return InkWell(
+    return ApplePressable(
       onTap: () => state.setTab(2),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.appleGlassCard,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppColors.outlineVariant.withOpacity(0.15),
-            width: 0.5,
+            color: AppColors.appleGlassBorder,
+            width: 0.6,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-      child: Column(
-        children: [
-          // Row 1: Model title, offline badge, threads
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: (state.hasActiveModel && state.activeModel.isLoaded)
-                            ? AppColors.secondary
-                            : AppColors.error,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        state.hasActiveModel
-                            ? (state.activeModel.isLoaded
-                                ? '${state.activeModel.name} (В памяти)'
-                                : '${state.activeModel.name} (Не загружена)')
-                            : 'Модель не загружена',
-                        style: TextStyle(
-                          fontFamily: AppTypography.monoFont,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: (state.hasActiveModel && state.activeModel.isLoaded)
-                              ? AppColors.secondary
-                              : AppColors.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Офлайн',
-                        style: TextStyle(
-                          fontFamily: AppTypography.monoFont,
-                          fontSize: 10,
-                          color: AppColors.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    if (state.settings.russianSkillEnabled) ...[
-                      const SizedBox(width: 4),
+        child: Column(
+          children: [
+            // Row 1: Model title, offline pill, RU skill pill
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        width: 7,
+                        height: 7,
                         decoration: BoxDecoration(
-                          color: AppColors.secondary.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
+                          color: isModelReady ? AppColors.appleGreen : AppColors.appleOrange,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isModelReady ? AppColors.appleGreen : AppColors.appleOrange).withOpacity(0.5),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          state.hasActiveModel
+                              ? (isModelReady
+                                  ? state.activeModel.name
+                                  : '${state.activeModel.name} (Не в ОЗУ)')
+                              : 'Модель не загружена',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                            color: isModelReady ? AppColors.appleLabel : AppColors.appleSecondaryLabel,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.appleGlassHighlight,
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Text(
-                          'RU Навык',
+                          'Офлайн',
                           style: TextStyle(
-                            fontFamily: AppTypography.monoFont,
                             fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.secondary,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                            color: AppColors.appleSecondaryLabel,
                           ),
+                        ),
+                      ),
+                      if (state.settings.russianSkillEnabled) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.appleTeal.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'RU Навык',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.1,
+                              color: AppColors.appleTeal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                // Threads counter
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.hub_outlined,
+                      size: 13,
+                      color: AppColors.appleTertiaryLabel,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${state.settings.cpuThreads} ядра',
+                      style: const TextStyle(
+                        fontFamily: AppTypography.monoFont,
+                        fontSize: 11,
+                        color: AppColors.appleSecondaryLabel,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Row 2: Live Speed, RAM, Temp
+            Row(
+              children: [
+                // Live Token Speed Pill
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.appleBlue.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.speed_rounded,
+                        size: 13,
+                        color: AppColors.appleBlue,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${state.liveTokSpeed.toStringAsFixed(1)} tok/s',
+                        style: const TextStyle(
+                          fontFamily: AppTypography.monoFont,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.appleBlue,
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.memory, size: 14, color: AppColors.onSurfaceVariant),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${state.settings.cpuThreads} потока',
-                    style: const TextStyle(
-                      fontFamily: AppTypography.monoFont,
-                      fontSize: 11,
-                      color: AppColors.onSurfaceVariant,
-                    ),
+                const SizedBox(width: 8),
+                Text(
+                  'arm64 • ${state.hardwareTelemetry.activeThreads}T',
+                  style: const TextStyle(
+                    fontFamily: AppTypography.monoFont,
+                    fontSize: 10,
+                    color: AppColors.appleTertiaryLabel,
                   ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Row 2: Speed, arch, RAM meter
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.speed, size: 14, color: AppColors.tertiary),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${state.liveTokSpeed} tok/s',
-                    style: const TextStyle(
-                      fontFamily: AppTypography.monoFont,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.onSurface,
-                    ),
+                ),
+                const Spacer(),
+                // RAM Metrics
+                Text(
+                  'RAM: ${state.ramUsedGb.toStringAsFixed(1)} / ${state.ramTotalGb.toStringAsFixed(0)} GB',
+                  style: const TextStyle(
+                    fontFamily: AppTypography.monoFont,
+                    fontSize: 11,
+                    color: AppColors.appleSecondaryLabel,
                   ),
-                  const SizedBox(width: 6),
-                  const Text('•', style: TextStyle(color: AppColors.outlineVariant)),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'arm64-v8.2a',
-                    style: TextStyle(
-                      fontFamily: AppTypography.monoFont,
-                      fontSize: 11,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Text.rich(
-                    TextSpan(
-                      text: 'RAM: ',
-                      style: const TextStyle(
-                        fontFamily: AppTypography.monoFont,
-                        fontSize: 10,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: '${state.ramUsedGb} GB',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.onSurface,
-                          ),
-                        ),
-                        TextSpan(text: ' / ${state.ramTotalGb.toInt()} GB'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 50,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: ramPercent,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
+                ),
+                const SizedBox(width: 6),
+                // Progress Bar
+                SizedBox(
+                  width: 40,
+                  height: 4,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: ramPercent,
+                      backgroundColor: AppColors.appleGlassHighlight,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        ramPercent > 0.85
+                            ? AppColors.appleRed
+                            : (ramPercent > 0.65
+                                ? AppColors.appleOrange
+                                : AppColors.appleGreen),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

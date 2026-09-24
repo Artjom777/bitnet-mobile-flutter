@@ -127,4 +127,85 @@ class AppTypography {
     letterSpacing: 0.5,
     color: AppColors.onSurfaceVariant,
   );
+
+  // Apple Optical Sizing Typography System
+  static const TextStyle appleLargeTitle = TextStyle(
+    fontSize: 34,
+    fontWeight: FontWeight.w700,
+    height: 1.15,
+    letterSpacing: -0.7,
+    color: AppColors.appleLabel,
+  );
+
+  static const TextStyle appleTitle1 = TextStyle(
+    fontSize: 28,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+    letterSpacing: -0.5,
+    color: AppColors.appleLabel,
+  );
+
+  static const TextStyle appleTitle2 = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w600,
+    height: 1.25,
+    letterSpacing: -0.3,
+    color: AppColors.appleLabel,
+  );
+
+  static const TextStyle appleTitle3 = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    height: 1.25,
+    letterSpacing: -0.2,
+    color: AppColors.appleLabel,
+  );
+
+  static const TextStyle appleHeadline = TextStyle(
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+    height: 1.3,
+    letterSpacing: -0.2,
+    color: AppColors.appleLabel,
+  );
+
+  static const TextStyle appleBody = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+    letterSpacing: -0.1,
+    color: AppColors.appleLabel,
+  );
+
+  static const TextStyle appleCallout = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    height: 1.35,
+    letterSpacing: -0.05,
+    color: AppColors.appleSecondaryLabel,
+  );
+
+  static const TextStyle appleSubheadline = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    height: 1.3,
+    letterSpacing: 0.0,
+    color: AppColors.appleSecondaryLabel,
+  );
+
+  static const TextStyle appleFootnote = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 1.25,
+    letterSpacing: 0.1,
+    color: AppColors.appleSecondaryLabel,
+  );
+
+  static const TextStyle appleCaption = TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    height: 1.2,
+    letterSpacing: 0.15,
+    color: AppColors.appleTertiaryLabel,
+  );
 }

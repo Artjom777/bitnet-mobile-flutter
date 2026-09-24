@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
@@ -7,6 +8,7 @@ import '../models/chat_message.dart';
 import '../state/bitnet_state.dart';
 import '../widgets/status_banner.dart';
 import '../widgets/code_block_view.dart';
+import '../widgets/apple_pressable.dart';
 import '../services/russian_skill_service.dart';
 import 'file_picker_screen.dart';
 
@@ -214,135 +216,202 @@ class _ChatScreenState extends State<ChatScreen> {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.primary.withOpacity(0.35),
-                  width: 1.5,
-                ),
-              ),
-              child: const Icon(
-                Icons.smart_toy_outlined,
-                size: 32,
-                color: AppColors.primary,
-              ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          decoration: BoxDecoration(
+            color: AppColors.appleGlassCard,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: AppColors.appleGlassBorder,
+              width: 0.6,
             ),
-            const SizedBox(height: 14),
-            const Text(
-              'BitNet On-Device AI',
-              style: TextStyle(
-                fontFamily: AppTypography.sansFont,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.onSurface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
-            ),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () {
-                if (widget.state.hasActiveModel && !widget.state.activeModel.isLoaded) {
-                  if (widget.state.activeModel.filename.startsWith('builtin://')) {
-                    widget.state.loadBuiltinModel();
-                  } else {
-                    final file = File(widget.state.activeModel.filename);
-                    if (file.existsSync()) {
-                      widget.state.loadModel(widget.state.activeModel);
-                    } else {
-                      widget.state.setTab(1);
-                    }
-                  }
-                } else {
-                  widget.state.setTab(1);
-                }
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: (widget.state.hasActiveModel && widget.state.activeModel.isLoaded)
-                        ? AppColors.secondary.withOpacity(0.35)
-                        : AppColors.error.withOpacity(0.35),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2C2C2E), Color(0xFF1C1C1E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: (widget.state.hasActiveModel && widget.state.activeModel.isLoaded)
-                            ? AppColors.secondary
-                            : AppColors.error,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      !widget.state.hasActiveModel
-                          ? 'Модель не выбрана • Нажмите для выбора'
-                          : (widget.state.activeModel.isLoaded
-                              ? '${widget.state.activeModel.name} • В памяти'
-                              : '${widget.state.activeModel.name} • Не загружена в ОЗУ'),
-                      style: const TextStyle(
-                        fontFamily: AppTypography.monoFont,
-                        fontSize: 11,
-                        color: AppColors.onSurfaceVariant,
-                      ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.appleGlassHighlight,
+                    width: 0.8,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.appleTeal.withOpacity(0.15),
+                      blurRadius: 16,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  size: 30,
+                  color: AppColors.appleTeal,
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Чат чист. Локальная нейросеть выполняется на архитектуре arm64-v8a без обращения к внешним серверам. Отправьте запрос или выберите тему ниже.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: AppTypography.sansFont,
-                fontSize: 13,
-                height: 1.45,
-                color: AppColors.onSurfaceVariant,
+              const SizedBox(height: 16),
+              const Text(
+                'BitNet On-Device AI',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: AppColors.appleLabel,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => widget.state.setTab(1),
-                  icon: const Icon(Icons.folder_open, size: 16),
-                  label: const Text('Модели'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.onSurface,
-                    side: const BorderSide(color: AppColors.outlineVariant),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              const SizedBox(height: 10),
+              ApplePressable(
+                onTap: () {
+                  if (widget.state.hasActiveModel && !widget.state.activeModel.isLoaded) {
+                    if (widget.state.activeModel.filename.startsWith('builtin://')) {
+                      widget.state.loadBuiltinModel();
+                    } else {
+                      final file = File(widget.state.activeModel.filename);
+                      if (file.existsSync()) {
+                        widget.state.loadModel(widget.state.activeModel);
+                      } else {
+                        widget.state.setTab(1);
+                      }
+                    }
+                  } else {
+                    widget.state.setTab(1);
+                  }
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppColors.appleGlassSurface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: (widget.state.hasActiveModel && widget.state.activeModel.isLoaded)
+                          ? AppColors.appleGreen.withOpacity(0.4)
+                          : AppColors.appleOrange.withOpacity(0.4),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: (widget.state.hasActiveModel && widget.state.activeModel.isLoaded)
+                              ? AppColors.appleGreen
+                              : AppColors.appleOrange,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        !widget.state.hasActiveModel
+                            ? 'Модель не выбрана • Нажмите для выбора'
+                            : (widget.state.activeModel.isLoaded
+                                ? '${widget.state.activeModel.name} • В памяти'
+                                : '${widget.state.activeModel.name} • Нажмите для загрузки'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.2,
+                          color: AppColors.appleSecondaryLabel,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                OutlinedButton.icon(
-                  onPressed: () => widget.state.setTab(3),
-                  icon: const Icon(Icons.tune, size: 16),
-                  label: const Text('Настройки'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.onSurface,
-                    side: const BorderSide(color: AppColors.outlineVariant),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Локальная нейросеть выполняется на архитектуре arm64-v8a без обращения к внешним серверам. Отправьте запрос или выберите тему ниже.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.45,
+                  letterSpacing: -0.2,
+                  color: AppColors.appleSecondaryLabel,
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ApplePressable(
+                    onTap: () => widget.state.setTab(1),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: AppColors.appleGlassSurface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.appleGlassHighlight, width: 0.6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.folder_open_rounded, size: 15, color: AppColors.appleLabel),
+                          SizedBox(width: 6),
+                          Text(
+                            'Модели',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                              color: AppColors.appleLabel,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ApplePressable(
+                    onTap: () => widget.state.setTab(3),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: AppColors.appleGlassSurface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.appleGlassHighlight, width: 0.6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.tune_rounded, size: 15, color: AppColors.appleLabel),
+                          SizedBox(width: 6),
+                          Text(
+                            'Настройки',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                              color: AppColors.appleLabel,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -428,7 +497,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   children: _quickPrompts.map((item) {
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: InkWell(
+                      child: ApplePressable(
                         onTap: () {
                           _textController.text = item['prompt'];
                           _textController.selection = TextSelection.fromPosition(
@@ -436,29 +505,33 @@ class _ChatScreenState extends State<ChatScreen> {
                           );
                           setState(() {});
                         },
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(18),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(20),
+                            color: AppColors.appleGlassCard,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: AppColors.appleGlassBorder,
+                              width: 0.6,
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 item['icon'] as IconData,
-                                size: 16,
+                                size: 15,
                                 color: item['color'] as Color,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 item['label'] as String,
                                 style: const TextStyle(
-                                  fontFamily: AppTypography.monoFont,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.onSurface,
+                                  letterSpacing: -0.1,
+                                  color: AppColors.appleLabel,
                                 ),
                               ),
                             ],
@@ -472,114 +545,130 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
         ),
-        // Material 3 Floating Input Dock
+        // Apple Floating Frosted Glass Input Dock
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.35),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Attach button
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: IconButton(
-                    onPressed: _showAttachDialog,
-                    icon: const Icon(
-                      Icons.attach_file,
-                      size: 20,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                    tooltip: 'Прикрепить контекст',
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.appleInputPill,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(
+                    color: AppColors.appleGlassHighlight,
+                    width: 0.7,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                // Text Field
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: TextField(
-                      controller: _textController,
-                      minLines: 1,
-                      maxLines: 4,
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _submitMessage(),
-                      style: const TextStyle(
-                        fontFamily: AppTypography.sansFont,
-                        fontSize: 14,
-                        color: AppColors.onSurface,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Спросите BitNet без доступа в сеть...',
-                        hintStyle: TextStyle(
-                          fontFamily: AppTypography.sansFont,
-                          fontSize: 14,
-                          color: AppColors.onSurfaceVariant,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Attach button with Apple Pressable
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: ApplePressable(
+                        onTap: _showAttachDialog,
+                        borderRadius: BorderRadius.circular(18),
+                        child: const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Icon(
+                            Icons.add_rounded,
+                            size: 22,
+                            color: AppColors.appleSecondaryLabel,
+                          ),
                         ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                       ),
                     ),
-                  ),
-                ),
-                // Voice input button
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: IconButton(
-                    onPressed: _handleVoiceInput,
-                    icon: const Icon(
-                      Icons.mic,
-                      size: 20,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                    tooltip: 'Голосовой ввод',
-                  ),
-                ),
-                // Send / Stop button
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: widget.state.isGenerating
-                          ? AppColors.error
-                          : (_textController.text.trim().isNotEmpty
-                              ? AppColors.primary
-                              : AppColors.surfaceContainerHighest),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      onPressed: widget.state.isGenerating
-                          ? widget.state.stopGeneration
-                          : (_textController.text.trim().isNotEmpty ? _submitMessage : null),
-                      icon: Icon(
-                        widget.state.isGenerating ? Icons.stop_rounded : Icons.arrow_upward,
-                        size: 20,
-                        color: widget.state.isGenerating
-                            ? AppColors.onError
-                            : (_textController.text.trim().isNotEmpty
-                                ? AppColors.onPrimary
-                                : AppColors.onSurfaceVariant.withOpacity(0.38)),
+                    // Text Field
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: TextField(
+                          controller: _textController,
+                          minLines: 1,
+                          maxLines: 4,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _submitMessage(),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            letterSpacing: -0.2,
+                            color: AppColors.appleLabel,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Спросите BitNet AI...',
+                            hintStyle: TextStyle(
+                              fontSize: 15,
+                              letterSpacing: -0.2,
+                              color: AppColors.appleTertiaryLabel,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          ),
+                        ),
                       ),
-                      tooltip: widget.state.isGenerating ? 'Остановить' : 'Отправить',
                     ),
-                  ),
+                    // Voice input button with Apple Pressable
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: ApplePressable(
+                        onTap: _handleVoiceInput,
+                        borderRadius: BorderRadius.circular(18),
+                        child: const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Icon(
+                            Icons.mic_none_rounded,
+                            size: 20,
+                            color: AppColors.appleSecondaryLabel,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Send / Stop button with Apple Spring Pressable
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3, right: 2),
+                      child: ApplePressable(
+                        onTap: widget.state.isGenerating
+                            ? widget.state.stopGeneration
+                            : (_textController.text.trim().isNotEmpty ? _submitMessage : null),
+                        borderRadius: BorderRadius.circular(18),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: widget.state.isGenerating
+                                ? AppColors.appleRed
+                                : (_textController.text.trim().isNotEmpty
+                                    ? AppColors.appleBlue
+                                    : AppColors.appleGlassHighlight),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Icon(
+                              widget.state.isGenerating ? Icons.stop_rounded : Icons.arrow_upward_rounded,
+                              size: 19,
+                              color: widget.state.isGenerating || _textController.text.trim().isNotEmpty
+                                  ? Colors.white
+                                  : AppColors.appleTertiaryLabel,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -602,53 +691,60 @@ class _ChatScreenState extends State<ChatScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16, left: 48),
+        margin: const EdgeInsets.only(bottom: 14, left: 48),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.copy, size: 14, color: AppColors.onSurfaceVariant),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  tooltip: 'Копировать',
-                  onPressed: () => _copyToClipboard(msg.text, 'Запрос'),
-                ),
-                const SizedBox(width: 6),
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Text(
+            Padding(
+              padding: const EdgeInsets.only(right: 4, bottom: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ApplePressable(
+                    onTap: () => _copyToClipboard(msg.text, 'Запрос'),
+                    child: const Icon(Icons.copy_rounded, size: 13, color: AppColors.appleTertiaryLabel),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
                     msg.timestamp,
                     style: const TextStyle(
                       fontFamily: AppTypography.monoFont,
                       fontSize: 10,
-                      color: AppColors.onSurfaceVariant,
+                      color: AppColors.appleTertiaryLabel,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                color: AppColors.primaryContainer,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
-                  topRight: Radius.circular(4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0071E3), Color(0xFF0A84FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                  topRight: Radius.circular(6),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0A84FF).withOpacity(0.28),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: SelectableText(
                 msg.text,
                 style: const TextStyle(
-                  fontFamily: AppTypography.sansFont,
-                  fontSize: 14,
-                  height: 1.4,
-                  color: AppColors.onPrimaryContainer,
+                  fontSize: 15,
+                  height: 1.35,
+                  letterSpacing: -0.2,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -674,62 +770,72 @@ class _ChatScreenState extends State<ChatScreen> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 18, right: 24),
+        margin: const EdgeInsets.only(bottom: 16, right: 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Bot header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primaryContainer,
-                        shape: BoxShape.circle,
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: AppColors.appleTeal.withOpacity(0.18),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          size: 12,
+                          color: AppColors.appleTeal,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.psychology,
-                        size: 14,
-                        color: AppColors.onPrimaryContainer,
+                      const SizedBox(width: 6),
+                      const Text(
+                        'BitNet AI',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          color: AppColors.appleLabel,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'BitNet 1.58b',
-                      style: TextStyle(
-                        fontFamily: AppTypography.sansFont,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.copy, size: 14, color: AppColors.onSurfaceVariant),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  tooltip: 'Копировать ответ',
-                  onPressed: () => _copyToClipboard(msg.text, 'Ответ нейросети'),
-                ),
-              ],
+                    ],
+                  ),
+                  ApplePressable(
+                    onTap: () => _copyToClipboard(msg.text, 'Ответ нейросети'),
+                    child: const Icon(Icons.copy_rounded, size: 13, color: AppColors.appleTertiaryLabel),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
             // Message Bubble Card
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: AppColors.surfaceContainer,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(4),
-                  topRight: Radius.circular(24),
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              decoration: BoxDecoration(
+                color: AppColors.appleGlassCard,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
                 ),
+                border: Border.all(
+                  color: AppColors.appleGlassBorder,
+                  width: 0.6,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,13 +845,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.secondary.withOpacity(0.12),
+                        color: AppColors.appleTeal.withOpacity(0.14),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.translate, size: 12, color: AppColors.secondary),
+                          const Icon(Icons.translate_rounded, size: 12, color: AppColors.appleTeal),
                           const SizedBox(width: 5),
                           Text(
                             msg.isTranslated
@@ -755,11 +861,11 @@ class _ChatScreenState extends State<ChatScreen> {
                               fontFamily: AppTypography.monoFont,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.secondary,
+                              color: AppColors.appleTeal,
                             ),
                           ),
                           const SizedBox(width: 8),
-                          InkWell(
+                          ApplePressable(
                             onTap: () {
                               if (msg.isTranslated) {
                                 widget.state.toggleTranslation(msg.id);
@@ -774,7 +880,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               style: const TextStyle(
                                 fontFamily: AppTypography.monoFont,
                                 fontSize: 10,
-                                color: AppColors.primary,
+                                color: AppColors.appleBlue,
                                 fontWeight: FontWeight.bold,
                                 decoration: TextDecoration.underline,
                               ),
@@ -788,10 +894,10 @@ class _ChatScreenState extends State<ChatScreen> {
                     SelectableText(
                       msg.text.isEmpty && msg.isStreaming ? '▍' : msg.text,
                       style: const TextStyle(
-                        fontFamily: AppTypography.sansFont,
-                        fontSize: 14,
-                        height: 1.5,
-                        color: AppColors.onSurface,
+                        fontSize: 15,
+                        height: 1.45,
+                        letterSpacing: -0.2,
+                        color: AppColors.appleLabel,
                       ),
                     )
                   else ...[
@@ -809,62 +915,69 @@ class _ChatScreenState extends State<ChatScreen> {
                     Container(
                       width: 8,
                       height: 16,
-                      color: AppColors.primary,
+                      color: AppColors.appleTeal,
                     ),
                   ],
                 ],
               ),
             ),
             const SizedBox(height: 6),
-            // Telemetry Badge below message
+            // Dynamic Island-style Telemetry Capsule below message
             if (msg.tokensPerSec != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppColors.appleGlassSurface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.appleGlassBorder,
+                    width: 0.5,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      msg.tokensCount != null ? Icons.check_circle : Icons.bolt,
-                      size: 13,
-                      color: AppColors.secondary,
+                      msg.tokensCount != null ? Icons.check_circle_rounded : Icons.bolt_rounded,
+                      size: 12,
+                      color: AppColors.appleTeal,
                     ),
                     const SizedBox(width: 5),
                     Text(
                       msg.tokensCount != null
-                          ? '${msg.tokensCount} токенов сгенерировано'
-                          : '${msg.tokensPerSec} токенов/сек',
+                          ? '${msg.tokensCount} токенов'
+                          : '${msg.tokensPerSec} tok/s',
                       style: const TextStyle(
                         fontFamily: AppTypography.monoFont,
                         fontSize: 10,
-                        color: AppColors.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.appleSecondaryLabel,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    const Text('•', style: TextStyle(color: AppColors.outlineVariant, fontSize: 10)),
-                    const SizedBox(width: 6),
-                    Text(
-                      msg.latencyMs != null ? 'задержка ${msg.latencyMs}мс' : '${msg.tokensPerSec} tok/s',
-                      style: const TextStyle(
-                        fontFamily: AppTypography.monoFont,
-                        fontSize: 10,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                    if (msg.powerWatts != null) ...[
+                    if (msg.latencyMs != null) ...[
                       const SizedBox(width: 6),
-                      const Text('•', style: TextStyle(color: AppColors.outlineVariant, fontSize: 10)),
+                      const Text('•', style: TextStyle(color: AppColors.appleTertiaryLabel, fontSize: 10)),
                       const SizedBox(width: 6),
                       Text(
-                        '${msg.powerWatts} Вт',
+                        '${msg.latencyMs}ms',
+                        style: const TextStyle(
+                          fontFamily: AppTypography.monoFont,
+                          fontSize: 10,
+                          color: AppColors.appleSecondaryLabel,
+                        ),
+                      ),
+                    ],
+                    if (msg.powerWatts != null) ...[
+                      const SizedBox(width: 6),
+                      const Text('•', style: TextStyle(color: AppColors.appleTertiaryLabel, fontSize: 10)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${msg.powerWatts}W',
                         style: const TextStyle(
                           fontFamily: AppTypography.monoFont,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: AppColors.appleGreen,
                         ),
                       ),
                     ],
